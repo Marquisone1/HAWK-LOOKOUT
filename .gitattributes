@@ -1,0 +1,5 @@
+# Keep shell scripts with LF line endings on all platforms
+scripts/*.sh text eol=lf
+
+# Default: normalize everything else
+* text=auto

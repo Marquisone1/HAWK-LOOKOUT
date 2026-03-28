@@ -1,0 +1,35 @@
+services:
+  whois:
+    build: .
+    image: hawk-lookout:latest
+    container_name: hawk-lookout
+    restart: unless-stopped
+
+    # Bind to localhost only — Nginx proxies public traffic to this port.
+    # Never expose 8000 directly to the internet.
+    ports:
+      - "127.0.0.1:8000:8000"
+
+    # SQLite database persisted on the host so data survives container rebuilds
+    volumes:
+      - ./data:/data
+
+    # Secrets from .env — copy .env.example to .env and fill in WHOISFREAK_API_KEY.
+    # SECRET_KEY is auto-generated to /data/secret_key if omitted.
+    # Admin credentials are printed to console on first boot.
+    env_file:
+      - path: .env
+        required: false
+
+    # Limit blast radius if the container is compromised
+    read_only: false      # SQLite needs write access to /data
+    security_opt:
+      - no-new-privileges:true
+
+    healthcheck:
+      test: ["CMD", "python", "-c",
+             "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s

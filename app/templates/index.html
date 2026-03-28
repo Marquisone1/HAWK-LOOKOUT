@@ -1,0 +1,748 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>HAWK LOOKOUT</title>
+  <style>
+    :root {
+      --bg: #0a0f1a;
+      --panel: #121a2a;
+      --line: #243149;
+      --text: #e6eefc;
+      --muted: #9aa8c3;
+      --accent: #4cc9f0;
+      --ok: #80ed99;
+      --warn: #ffb703;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+      background: radial-gradient(circle at top right, #18263d 0%, var(--bg) 45%);
+      color: var(--text);
+      min-height: 100vh;
+      display: grid;
+      place-items: center;
+      padding: 16px;
+    }
+
+    .app {
+      width: 100%;
+      max-width: 1800px;
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 16px;
+      padding: 32px 40px 40px;
+    }
+
+    .top-nav {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 28px;
+      padding-bottom: 20px;
+      border-bottom: 1px solid var(--line);
+    }
+
+    .nav-brand h1 {
+      margin: 0;
+      font-size: 2rem;
+      letter-spacing: 0.08em;
+      color: var(--accent);
+    }
+
+    .nav-brand .subtitle {
+      margin: 4px 0 0;
+      color: var(--muted);
+      font-size: 0.95rem;
+    }
+
+    .nav-links {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .nav-user {
+      color: var(--muted);
+      font-size: 0.88rem;
+      padding: 7px 14px;
+      border: 1px solid var(--line);
+      border-radius: 999px;
+    }
+
+    .nav-btn {
+      text-decoration: none;
+      color: var(--text);
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      padding: 8px 18px;
+      font-size: 0.9rem;
+      font-weight: 600;
+      transition: border-color 0.15s, color 0.15s;
+    }
+
+    .nav-btn:hover {
+      border-color: var(--accent);
+      color: var(--accent);
+    }
+
+    .nav-btn.logout {
+      color: #ff9b9b;
+      border-color: #3a1a1a;
+    }
+
+    .nav-btn.logout:hover {
+      border-color: #ff9b9b;
+    }
+
+    h1 {
+      margin: 0;
+      font-size: 2rem;
+      letter-spacing: 0.08em;
+      color: var(--accent);
+    }
+
+    .subtitle {
+      margin: 6px 0 22px;
+      color: var(--muted);
+      font-size: 1rem;
+    }
+
+    .grid {
+      display: grid;
+      gap: 12px;
+      grid-template-columns: 1fr auto auto;
+    }
+
+    input {
+      width: 100%;
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      background: #0d1422;
+      color: var(--text);
+      padding: 14px 18px;
+      font-size: 1.05rem;
+      outline: none;
+      transition: border-color 0.15s;
+    }
+
+    input:focus {
+      border-color: var(--accent);
+      box-shadow: 0 0 0 3px rgba(76,201,240,0.1);
+    }
+
+    button {
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      background: #0f1e34;
+      color: var(--text);
+      padding: 0 22px;
+      height: 50px;
+      font-size: 1rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: border-color 0.15s;
+    }
+
+    button.primary {
+      background: var(--accent);
+      color: #05243a;
+      border-color: transparent;
+      font-size: 1.05rem;
+    }
+
+    button:hover:not(:disabled) {
+      border-color: var(--accent);
+    }
+
+    button.primary:hover:not(:disabled) {
+      opacity: 0.9;
+    }
+
+    button:disabled { opacity: 0.6; cursor: not-allowed; }
+
+    .note {
+      margin-top: 10px;
+      color: var(--muted);
+      font-size: 0.85rem;
+    }
+
+    .status {
+      margin-top: 14px;
+      padding: 10px 12px;
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      font-size: 0.92rem;
+      color: var(--muted);
+      display: none;
+    }
+
+    .status.error { color: #ff9b9b; border-color: #6d2a2a; background: #231417; }
+    .status.info { color: var(--accent); }
+
+    .panel {
+      margin-top: 14px;
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      background: #0d1422;
+      padding: 12px;
+      display: none;
+    }
+
+    .meta {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-bottom: 10px;
+    }
+
+    .chip {
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      padding: 4px 10px;
+      font-size: 0.78rem;
+      color: var(--muted);
+    }
+
+    .chip.ok { color: var(--ok); }
+    .chip.warn { color: var(--warn); }
+
+    .cards {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+      gap: 12px;
+    }
+
+    .card {
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      padding: 14px 16px;
+      background: #0b111c;
+    }
+
+    .label {
+      color: var(--muted);
+      font-size: 0.74rem;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      margin-bottom: 6px;
+    }
+
+
+    .loader {
+      margin-top: 10px;
+      display: none;
+    }
+
+    .loader-track {
+      position: relative;
+      width: 100%;
+      height: 16px;
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      background: #0b111c;
+      overflow: hidden;
+    }
+
+    .loader-fill {
+      position: absolute;
+      top: 0;
+      left: 0;
+      height: 100%;
+      width: 35%;
+      border-radius: 999px;
+      background: linear-gradient(90deg, #1aa7db, var(--accent));
+      animation: hawk-progress 1.15s ease-in-out infinite;
+    }
+
+    .hawk-runner {
+      position: absolute;
+      top: -2px;
+      left: -2%;
+      font-size: 1.1rem;
+      filter: drop-shadow(0 0 6px rgba(76, 201, 240, 0.8));
+      animation: hawk-run 1.15s ease-in-out infinite;
+      z-index: 2;
+      pointer-events: none;
+    }
+
+    .loader-caption {
+      margin-top: 6px;
+      color: var(--muted);
+      font-size: 0.82rem;
+    }
+
+    @keyframes hawk-progress {
+      0% { transform: translateX(-110%); }
+      100% { transform: translateX(340%); }
+    }
+
+    @keyframes hawk-run {
+      0% { left: -2%; }
+      100% { left: 92%; }
+    }
+    .value {
+      font-size: 0.98rem;
+      word-break: break-word;
+    }
+
+    details {
+      margin-top: 10px;
+    }
+
+    pre {
+      max-height: 260px;
+      overflow: auto;
+      margin: 8px 0 0;
+      padding: 10px;
+      border-radius: 8px;
+      border: 1px solid var(--line);
+      background: #0a1019;
+      color: #b9c7e6;
+      font-size: 0.78rem;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 8px;
+      font-size: 0.86rem;
+    }
+
+    th, td {
+      text-align: left;
+      padding: 8px;
+      border-bottom: 1px solid var(--line);
+    }
+
+    th { color: var(--muted); font-size: 0.76rem; text-transform: uppercase; }
+
+    @media (max-width: 700px) {
+      .grid {
+        grid-template-columns: 1fr;
+      }
+
+      button {
+        height: 44px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <main class="app">
+    <nav class="top-nav">
+      <div class="nav-brand">
+        <h1>🦅 HAWK LOOKOUT</h1>
+        <p class="subtitle">Minimal WHOIS recon for IPs and domains.</p>
+      </div>
+      <div class="nav-links">
+        <span class="nav-user">👤 {{ session.get('site_username', 'User') }}</span>
+        <a href="/settings" class="nav-btn">⚙ Settings</a>
+        <a href="/logout" class="nav-btn logout">Logout</a>
+      </div>
+    </nav>
+
+    <div class="grid">
+      <input id="target" placeholder="8.8.8.8 or example.com" />
+      <button class="primary" id="scanBtn">Scan</button>
+      <button id="historyBtn">History</button>
+      <button id="clearBtn" style="color:#ff9b9b; border-color:#3a1a1a;">Clear History</button>
+    </div>
+
+    <p class="note">Cyber Security points: IOC enrichment, ownership checks, registration age review, incident triage support.</p>
+
+    <div id="status" class="status"></div>
+    <div id="loader" class="loader">
+      <div class="loader-track">
+        <div class="loader-fill"></div>
+        <div class="hawk-runner">🦅</div>
+      </div>
+      <div class="loader-caption" id="loaderText">Recon in progress...</div>
+    </div>
+
+    <section id="result" class="panel"></section>
+    <section id="history" class="panel"></section>
+  </main>
+
+  <script>
+    // API key injected server-side from the database
+    const APP_API_KEY = {{ api_key | tojson }};
+
+    const targetEl = document.getElementById("target");
+    const scanBtn = document.getElementById("scanBtn");
+    const historyBtn = document.getElementById("historyBtn");
+    const clearBtn = document.getElementById("clearBtn");
+    const statusEl = document.getElementById("status");
+    const loaderEl = document.getElementById("loader");
+    const loaderTextEl = document.getElementById("loaderText");
+    const resultEl = document.getElementById("result");
+    const historyEl = document.getElementById("history");
+
+    function esc(v) {
+      if (v === null || v === undefined) return "-";
+      return String(v)
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/\"/g, "&quot;");
+    }
+
+    function setStatus(type, msg) {
+      statusEl.className = "status " + type;
+      statusEl.style.display = "block";
+      statusEl.innerHTML = msg;
+    }
+
+    function clearStatus() {
+      statusEl.style.display = "none";
+      statusEl.textContent = "";
+    }
+
+    function showLoader(text) {
+      loaderTextEl.textContent = text || "Recon in progress...";
+      loaderEl.style.display = "block";
+    }
+
+    function hideLoader() {
+      loaderEl.style.display = "none";
+    }
+
+    function card(label, value) {
+      return `<div class="card"><div class="label">${esc(label)}</div><div class="value">${esc(value)}</div></div>`;
+    }
+
+    function firstValue(...values) {
+      for (const v of values) {
+        if (v !== undefined && v !== null && v !== "") return v;
+      }
+      return "Unknown";
+    }
+
+    function asText(v) {
+      if (Array.isArray(v)) return v.length ? v.join(", ") : "Unknown";
+      if (v === undefined || v === null || v === "") return "Unknown";
+      if (typeof v === "object") return JSON.stringify(v);
+      return String(v);
+    }
+
+    function flattenObject(obj, prefix = "", out = []) {
+      if (obj === null || obj === undefined) return out;
+
+      if (Array.isArray(obj)) {
+        if (obj.length === 0) {
+          out.push([prefix, "[]"]);
+          return out;
+        }
+
+        if (obj.every((item) => ["string", "number", "boolean"].includes(typeof item))) {
+          out.push([prefix, obj.join(", ")]);
+          return out;
+        }
+
+        obj.forEach((item, idx) => {
+          const path = prefix ? `${prefix}[${idx}]` : `[${idx}]`;
+          flattenObject(item, path, out);
+        });
+        return out;
+      }
+
+      if (typeof obj === "object") {
+        Object.entries(obj).forEach(([k, v]) => {
+          const path = prefix ? `${prefix}.${k}` : k;
+          if (v && typeof v === "object") {
+            flattenObject(v, path, out);
+          } else {
+            out.push([path, asText(v)]);
+          }
+        });
+        return out;
+      }
+
+      out.push([prefix, asText(obj)]);
+      return out;
+    }
+
+    function renderAllFieldsDetails(data) {
+      const rows = flattenObject(data)
+        .map(([k, v]) => `<tr><td>${esc(k)}</td><td>${esc(v)}</td></tr>`)
+        .join("");
+
+      return `
+        <details>
+          <summary>All extracted fields</summary>
+          <table>
+            <thead>
+              <tr>
+                <th>Field</th>
+                <th>Value</th>
+              </tr>
+            </thead>
+            <tbody>${rows}</tbody>
+          </table>
+        </details>
+      `;
+    }
+
+    function threatChip(type, data) {
+      if (type === "domain") {
+        const root = data || {};
+        const reg = root.registry_data || {};
+        const created =
+          root?.whois?.createdDate ||
+          root?.createdDate ||
+          root?.create_date ||
+          reg?.createdDate ||
+          reg?.create_date;
+        if (!created) return '<span class="chip warn">Unknown posture</span>';
+        const age = (Date.now() - new Date(created).getTime()) / 86400000;
+        if (age < 30) return '<span class="chip warn">Fresh registration</span>';
+        return '<span class="chip ok">Established registration</span>';
+      }
+      return '<span class="chip ok">Network intelligence collected</span>';
+    }
+
+    function renderResult(payload) {
+      const t = payload.type;
+      const d = t === "domain" ? (payload.data || {}) : (payload.data?.ipWhois || payload.data || {});
+
+      let cards = "";
+      if (t === "domain") {
+        const reg = d.registry_data || {};
+        const registrar = d.domain_registrar || reg.domain_registrar || {};
+        const registrant = d.registrant_contact || reg.registrant_contact || {};
+        const status = Array.isArray(d.domain_status)
+          ? d.domain_status.join(", ")
+          : (Array.isArray(reg.domain_status) ? reg.domain_status.join(", ") : "Unknown");
+        const nameServers = Array.isArray(d.name_servers)
+          ? d.name_servers.join(", ")
+          : (Array.isArray(reg.name_servers) ? reg.name_servers.join(", ") : "Unknown");
+
+        cards += card("Domain", firstValue(d.domain_name, reg.domain_name, d.domainName, payload.target));
+        cards += card("Domain Registered", firstValue(d.domain_registered, reg.domain_registered, d.status));
+        cards += card("Registrar", firstValue(registrar.registrar_name, d.registrarName));
+        cards += card("Registrar IANA ID", firstValue(registrar.iana_id, d.registrarIanaId, reg.registrarIanaId));
+        cards += card("Registrar Email", firstValue(registrar.email_address, d.registrarEmail));
+        cards += card("Registrar Phone", firstValue(registrar.phone_number, d.registrarPhone));
+        cards += card("Registrar Website", firstValue(registrar.website_url, d.registrarWebsite));
+        cards += card("Created", firstValue(d.create_date, reg.create_date, d.createdDate));
+        cards += card("Updated", firstValue(d.update_date, reg.update_date, d.updatedDate));
+        cards += card("Expires", firstValue(d.expiry_date, reg.expiry_date, d.expiresDate));
+        cards += card("Query Time", firstValue(d.query_time, reg.query_time));
+        cards += card("Registrant Company", firstValue(registrant.company, d.registrantOrganization, d.registrantName));
+        cards += card("Registrant Country", firstValue(registrant.country_name, registrant.country_code, d.registrantCountry));
+        cards += card("Registrant State", firstValue(registrant.state, d.registrantState));
+        cards += card("WHOIS Server", firstValue(d.whois_server, reg.whois_server, d.whoisServer));
+        cards += card("Domain Status", status);
+        cards += card("Name Servers", nameServers);
+      } else {
+        // WhoisFreak IP response shape:
+        // d.ip_address, d.whois_server, d.query_time,
+        // d.organization: { name, handle, address, street, city, state, zip_code, country, date_created, date_updated }
+        // d.inet_nums: [{ start_ip, end_ip, cidr:[], net_name, ... }]
+        // d.abuse_contacts: [{ name, handle, email:[] }]
+        // d.technical_contacts: [{ name, handle, email:[] }]
+        const org      = d.organization || {};
+        const net      = Array.isArray(d.inet_nums) && d.inet_nums.length ? d.inet_nums[0] : {};
+        const abuse    = Array.isArray(d.abuse_contacts) && d.abuse_contacts.length ? d.abuse_contacts[0] : {};
+        const tech     = Array.isArray(d.technical_contacts) && d.technical_contacts.length ? d.technical_contacts[0] : {};
+
+        const cidr     = Array.isArray(net.cidr) ? net.cidr.join(", ") : (net.cidr || "Unknown");
+        const netRange = (net.start_ip && net.end_ip) ? `${net.start_ip} – ${net.end_ip}` : "Unknown";
+        const abuseEmail = Array.isArray(abuse.email) ? abuse.email.join(", ") : (abuse.email || "Unknown");
+        const techEmail  = Array.isArray(tech.email)  ? tech.email.join(", ")  : (tech.email  || "Unknown");
+
+        cards += card("IP Address",     firstValue(d.ip_address, payload.target));
+        cards += card("Organization",   firstValue(org.name));
+        cards += card("Org Handle",     firstValue(org.handle));
+        cards += card("Country",        firstValue(org.country));
+        cards += card("State/Region",   firstValue(org.state));
+        cards += card("City",           firstValue(org.city));
+        cards += card("Postal Code",    firstValue(org.zip_code));
+        cards += card("Address",        firstValue(org.address, org.street));
+        cards += card("Network Name",   firstValue(net.net_name));
+        cards += card("Network Range",  netRange);
+        cards += card("CIDR",           cidr);
+        cards += card("WHOIS Server",   firstValue(d.whois_server));
+        cards += card("Query Time",     firstValue(d.query_time));
+        cards += card("Org Created",    firstValue(org.date_created));
+        cards += card("Org Updated",    firstValue(org.date_updated));
+        cards += card("Abuse Contact",  firstValue(abuse.name));
+        cards += card("Abuse Email",    abuseEmail === "" ? "Unknown" : abuseEmail);
+        cards += card("Tech Contact",   firstValue(tech.name));
+        cards += card("Tech Email",     techEmail === "" ? "Unknown" : techEmail);
+      }
+
+      resultEl.innerHTML = `
+        <div class="meta">
+          <span class="chip">Target: ${esc(payload.target)}</span>
+          <span class="chip">Type: ${esc(payload.type)}</span>
+          <span class="chip">Lookup ID: ${esc(payload.lookup_id)}</span>
+          ${threatChip(payload.type, payload.data)}
+        </div>
+        <div class="cards">${cards}</div>
+        <details>
+          <summary>Raw JSON</summary>
+          <pre>${esc(JSON.stringify(payload.data, null, 2))}</pre>
+        </details>
+        ${renderAllFieldsDetails(payload.data)}
+      `;
+      resultEl.style.display = "block";
+    }
+
+    async function runScan() {
+      const target = targetEl.value.trim();
+      if (!target) {
+        setStatus("error", "Enter an IP or domain.");
+        return;
+      }
+
+      clearStatus();
+      historyEl.style.display = "none";
+      scanBtn.disabled = true;
+      scanBtn.textContent = "Scanning...";
+      setStatus("info", "Running lookup...");
+      showLoader("🦅 Hawk is scanning the target...");
+
+      try {
+        const resp = await fetch("/lookup", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "X-API-Key": APP_API_KEY
+          },
+          body: JSON.stringify({ target })
+        });
+
+        const payload = await resp.json();
+        if (!resp.ok) {
+          resultEl.style.display = "none";
+          setStatus("error", `${esc(payload.error || "Error")}: ${esc(payload.message || "Lookup failed")}`);
+          return;
+        }
+
+        clearStatus();
+        renderResult(payload);
+      } catch (e) {
+        setStatus("error", `Request failed: ${esc(e.message)}`);
+      } finally {
+        hideLoader();
+        scanBtn.disabled = false;
+        scanBtn.textContent = "Scan";
+      }
+    }
+
+    async function loadHistory() {
+      clearStatus();
+      setStatus("info", "Loading history...");
+      showLoader("🦅 Hawk is loading history...");
+
+      try {
+        const resp = await fetch("/history?limit=50", {
+          headers: { "X-API-Key": APP_API_KEY }
+        });
+        const payload = await resp.json();
+
+        if (!resp.ok) {
+          setStatus("error", `${esc(payload.error || "Error")}: ${esc(payload.message || "History failed")}`);
+          return;
+        }
+
+        clearStatus();
+
+        if (!payload.history || payload.history.length === 0) {
+          historyEl.innerHTML = "<p class='note'>No history yet.</p>";
+          historyEl.style.display = "block";
+          return;
+        }
+
+        const rows = payload.history.map((row) => {
+          const isDomain = !!(row.result?.domain_name || row.result?.registry_data?.domain_name);
+          const detail = isDomain
+            ? (
+                row.result?.domain_registrar?.registrar_name ||
+                row.result?.registry_data?.domain_registrar?.registrar_name ||
+                row.result?.whois?.registrarName ||
+                "Unknown"
+              )
+            : (row.result?.organization?.name || "Unknown");
+
+          return `
+            <tr>
+              <td>${esc(row.ip_address)}</td>
+              <td>${esc(isDomain ? "domain" : "ip")}</td>
+              <td>${esc(detail)}</td>
+              <td>${esc(new Date(row.created_at).toLocaleString())}</td>
+              <td><button onclick="deleteEntry(${row.id}, this)" style="padding:2px 10px;font-size:0.78rem;color:#ff9b9b;border-color:#3a1a1a;">Delete</button></td>
+            </tr>
+          `;
+        }).join("");
+
+        historyEl.innerHTML = `
+          <table>
+            <thead>
+              <tr>
+                <th>Target</th>
+                <th>Type</th>
+                <th>Owner/Registrar</th>
+                <th>Time</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody>${rows}</tbody>
+          </table>
+        `;
+        historyEl.style.display = "block";
+      } catch (e) {
+        setStatus("error", `History request failed: ${esc(e.message)}`);
+      } finally {
+        hideLoader();
+      }
+    }
+
+    scanBtn.addEventListener("click", runScan);
+    historyBtn.addEventListener("click", loadHistory);
+    clearBtn.addEventListener("click", async () => {
+      if (!confirm("Delete all history entries?")) return;
+      try {
+        const resp = await fetch("/history", {
+          method: "DELETE",
+          headers: { "X-API-Key": APP_API_KEY }
+        });
+        const payload = await resp.json();
+        if (resp.ok) {
+          historyEl.innerHTML = "<p class='note'>History cleared.</p>";
+          historyEl.style.display = "block";
+        } else {
+          setStatus("error", `Clear failed: ${esc(payload.error || "Unknown error")}`);
+        }
+      } catch (e) {
+        setStatus("error", `Clear failed: ${esc(e.message)}`);
+      }
+    });
+    targetEl.addEventListener("keydown", (e) => {
+      if (e.key === "Enter") runScan();
+    });
+
+    async function deleteEntry(id, btn) {
+      btn.disabled = true;
+      try {
+        const resp = await fetch(`/history/${id}`, {
+          method: "DELETE",
+          headers: { "X-API-Key": APP_API_KEY }
+        });
+        if (resp.ok) {
+          btn.closest("tr").remove();
+        } else {
+          btn.disabled = false;
+        }
+      } catch (e) {
+        btn.disabled = false;
+      }
+    }
+  </script>
+</body>
+</html>
