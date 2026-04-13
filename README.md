@@ -1,4 +1,4 @@
-# 🦅 HAWK LOOKOUT v1.1
+# 🦅 HAWK LOOKOUT v1.2
 
 **Minimal WHOIS reconnaissance tool for IPs and domains.**  
 Self-hosted, Docker-ready, login-protected, with a REST API and a clean dark/light web UI.
@@ -9,7 +9,12 @@ Self-hosted, Docker-ready, login-protected, with a REST API and a clean dark/lig
 
 ---
 
-## What's New in v1.1
+## What's New in v1.2
+
+- **URLhaus Integration** — Live malware host checks via the [abuse.ch URLhaus API](https://urlhaus-api.abuse.ch/). Shows malware URL count, online/offline status, threat tags (e.g. "emotet", "Gozi"), and recent malware URLs — all inline with scan results. Requires a free Auth-Key from [auth.abuse.ch](https://auth.abuse.ch/).
+- **Security Patch (v1.1.1)** — Session role revalidation on every request, constant-time API key comparison, admin-only backup routes, username length caps, POST logout, nginx body limit fix.
+
+### v1.1
 
 - **Multi-User Support** — Admin and Analyst roles. Admins can create/delete users and manage API keys. Analysts get their own scoped lookup history.
 - **Interactive Dashboard** — Visual analytics with lookup trends (bar chart), IP vs domain breakdown (donut), top targets, and threat feed health status.
@@ -23,7 +28,7 @@ Self-hosted, Docker-ready, login-protected, with a REST API and a clean dark/lig
 ## Features
 
 - **WHOIS Lookups** — IP addresses and domain names via the WhoisFreak API
-- **Blacklist Checks** — Spamhaus ZEN/DBL, SpamCop, SORBS, SURBL, and ClickFix threat feed
+- **Blacklist Checks** — Spamhaus ZEN/DBL, SpamCop, SORBS, SURBL, ClickFix threat feed, and URLhaus malware host intel
 - **Lookup History** — Every query stored per-user; accessible from the UI or API
 - **Multi-User** — Admin + Analyst roles with scoped access
 - **Dashboard & Analytics** — Lookup trends, type breakdown, top targets, feed health
@@ -38,6 +43,7 @@ Self-hosted, Docker-ready, login-protected, with a REST API and a clean dark/lig
 
 - [Docker](https://docs.docker.com/get-docker/) + [Docker Compose](https://docs.docker.com/compose/install/)
 - A free [WhoisFreak API key](https://whoisfreakapi.com/) for WHOIS lookups
+- A free [URLhaus Auth-Key](https://auth.abuse.ch/) for malware host checks (optional — scans still work without it)
 - A domain + TLS certificate for production (Nginx config included)
 
 ---
@@ -161,9 +167,11 @@ curl "https://example.com/blacklist?target=8.8.8.8" -H "X-API-Key: your_key"
     { "list": "SpamCop",      "listed": false },
     { "list": "SORBS",        "listed": false }
   ],
-  "clickfix": false
+  "clickfix": false,
+  "urlhaus": null
 }
 ```
+When URLhaus finds malware URLs for the host, `urlhaus` contains `url_count`, `urls_online`, `tags`, `recent_urls`, and a link to the full URLhaus report.
 
 ### `GET /history`
 Retrieve lookup history. Query params: `limit` (1–500, default 50), `offset` (default 0).
@@ -247,7 +255,7 @@ hawk-lookout/
 │   ├── config.py         Flask config (reads .env)
 │   ├── models.py         SQLAlchemy models (User, SiteUser, LookupHistory)
 │   ├── routes.py         Web routes (/login, /settings, /) + session-auth proxy
-│   ├── services.py       WhoisFreak API client + blacklist checker
+│   ├── services.py       WhoisFreak API client + blacklist checker + URLhaus
 │   └── templates/        Jinja2 HTML templates
 ├── data/                 Docker volume — SQLite database lives here
 ├── nginx/
