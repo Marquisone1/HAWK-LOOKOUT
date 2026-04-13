@@ -986,7 +986,7 @@
         const bl = await resp.json();
         if (!resp.ok) { blSection.innerHTML = ""; return; }
         blSection.innerHTML = renderBlacklistBanners(bl);
-        const anyHit = bl.clickfix || (bl.dnsbl || []).some(d => d.listed);
+        const anyHit = bl.clickfix || (bl.dnsbl || []).some(d => d.listed) || (bl.urlhaus && bl.urlhaus.url_count > 0);
         if (anyHit && !resultEl.classList.contains("risk-critical")) {
           resultEl.classList.remove("risk-warn", "risk-ok");
           resultEl.classList.add("risk-critical");
@@ -1008,6 +1008,53 @@
             </div>
           </div>`;
       }
+
+      // URLhaus malware distribution check
+      if (bl.urlhaus) {
+        const uh = bl.urlhaus;
+        const onlineCount = uh.urls_online || 0;
+        const totalCount = uh.url_count || 0;
+        const tags = (uh.tags || []).map(t => esc(t)).join(", ");
+        const level = onlineCount > 0 ? "critical" : (totalCount > 0 ? "warn" : "ok");
+        const icon = onlineCount > 0 ? "🦠" : (totalCount > 0 ? "⚠️" : "✓");
+
+        if (totalCount > 0) {
+          let detail = `${totalCount} malware URL${totalCount !== 1 ? "s" : ""} tracked by URLhaus`;
+          if (onlineCount > 0) detail += ` (${onlineCount} currently online)`;
+          else detail += " (all offline)";
+          if (tags) detail += `. Tags: ${tags}`;
+          if (uh.urlhaus_reference) detail += `. <a href="${esc(uh.urlhaus_reference)}" target="_blank" rel="noopener" style="color:inherit;text-decoration:underline;">View on URLhaus →</a>`;
+
+          html += `
+            <div class="risk-banner risk-${level}">
+              <span class="risk-icon">${icon}</span>
+              <div>
+                <div class="risk-label">URLHAUS — ${onlineCount > 0 ? "ACTIVE MALWARE HOST" : "KNOWN MALWARE HOST"}</div>
+                <div class="risk-detail">${detail}</div>
+              </div>
+            </div>`;
+
+          // Show recent malware URLs if available
+          if (uh.recent_urls && uh.recent_urls.length > 0) {
+            const urlRows = uh.recent_urls.map(u => `
+              <tr>
+                <td style="font-family:monospace;font-size:0.76rem;word-break:break-all;">${esc(u.url)}</td>
+                <td><span class="chip ${u.status === 'online' ? 'danger' : ''}" style="font-size:0.72rem;">${esc(u.status)}</span></td>
+                <td style="font-size:0.76rem;">${esc(u.date_added || '-')}</td>
+                <td style="font-size:0.76rem;">${(u.tags || []).map(t => esc(t)).join(', ') || '-'}</td>
+              </tr>`).join('');
+            html += `
+              <details style="margin-bottom:10px;">
+                <summary style="cursor:pointer;color:var(--muted);font-size:0.82rem;">🔎 Recent malware URLs (${uh.recent_urls.length} of ${totalCount})</summary>
+                <table style="margin-top:6px;">
+                  <thead><tr><th>URL</th><th>Status</th><th>Date Added</th><th>Tags</th></tr></thead>
+                  <tbody>${urlRows}</tbody>
+                </table>
+              </details>`;
+          }
+        }
+      }
+
       const listed = (bl.dnsbl || []).filter(d => d.listed);
       if (listed.length) {
         html += `

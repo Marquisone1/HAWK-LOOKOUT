@@ -15,6 +15,8 @@ class User(db.Model):
     api_key = db.Column(db.String(255), unique=True, nullable=False, index=True)
     # WhoisFreak third-party API key — managed via the Settings page, never exposed to the browser
     whoisfreak_api_key = db.Column(db.String(255), nullable=True)
+    # URLhaus (abuse.ch) Auth-Key — managed via Settings, never exposed to the browser
+    urlhaus_auth_key = db.Column(db.String(255), nullable=True)
     created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
     last_used = db.Column(db.DateTime, onupdate=datetime.utcnow)
 

@@ -163,7 +163,7 @@ class WhoisFreakService:
 
 
 class BlacklistService:
-    """DNSBL lookups + dynamic ClickFix domain/IP check."""
+    """DNSBL lookups + dynamic ClickFix domain/IP check + URLhaus host query."""
 
     IP_DNSBLS = [
         ('zen.spamhaus.org', 'Spamhaus ZEN'),
@@ -188,6 +188,10 @@ class BlacklistService:
     _clickfix_lock = threading.Lock()
     _clickfix_last_error = None
     _clickfix_retries = 2  # total attempts per refresh
+
+    # URLhaus API (abuse.ch)
+    URLHAUS_HOST_API = 'https://urlhaus-api.abuse.ch/v1/host/'
+    _urlhaus_timeout = 10
 
     def _get_clickfix_domains(self):
         """Return the cached ClickFix set, refreshing if stale. Retries on failure."""
@@ -241,7 +245,52 @@ class BlacklistService:
                     'stale': (time.time() - ts) > cls._clickfix_ttl if ts else True,
                     'last_error': cls._clickfix_last_error,
                 },
+                'urlhaus': {
+                    'configured': cls._is_urlhaus_configured(),
+                },
             }
+
+    @classmethod
+    def _is_urlhaus_configured(cls):
+        """Check if a URLhaus Auth-Key is configured."""
+        try:
+            from .models import User
+            user = User.query.first()
+            return bool(user and user.urlhaus_auth_key)
+        except Exception:
+            return False
+
+    def _get_urlhaus_auth_key(self):
+        """Read URLhaus Auth-Key from the database."""
+        from .models import User
+        user = User.query.first()
+        if user and user.urlhaus_auth_key:
+            return user.urlhaus_auth_key
+        return None
+
+    def _query_urlhaus_host(self, host: str) -> dict | None:
+        """Query URLhaus /v1/host/ API. Returns parsed JSON or None on failure."""
+        auth_key = self._get_urlhaus_auth_key()
+        if not auth_key:
+            return None
+        try:
+            resp = requests.post(
+                self.URLHAUS_HOST_API,
+                headers={'Auth-Key': auth_key},
+                data={'host': host},
+                timeout=self._urlhaus_timeout,
+            )
+            if resp.status_code != 200:
+                logger.warning(f"URLhaus host query failed HTTP {resp.status_code}")
+                return None
+            data = resp.json()
+            if data.get('query_status') not in ('ok', 'no_results'):
+                logger.warning(f"URLhaus query_status: {data.get('query_status')}")
+                return None
+            return data
+        except Exception as exc:
+            logger.warning(f"URLhaus host query error: {exc}")
+            return None
 
     def _check_dnsbl_ip(self, ip: str, bl_host: str) -> bool:
         try:
@@ -286,9 +335,36 @@ class BlacklistService:
             or f'www.{clean_target}' in cf_domains
         )
 
+        # URLhaus host query
+        urlhaus_data = self._query_urlhaus_host(clean_target)
+        urlhaus_result = None
+        if urlhaus_data and urlhaus_data.get('query_status') == 'ok':
+            urls_list = urlhaus_data.get('urls') or []
+            urlhaus_result = {
+                'host': urlhaus_data.get('host'),
+                'url_count': int(urlhaus_data.get('url_count', 0)),
+                'firstseen': urlhaus_data.get('firstseen'),
+                'blacklists': urlhaus_data.get('blacklists'),
+                'urlhaus_reference': urlhaus_data.get('urlhaus_reference'),
+                'urls_online': sum(1 for u in urls_list if u.get('url_status') == 'online'),
+                'urls_offline': sum(1 for u in urls_list if u.get('url_status') == 'offline'),
+                'tags': list({tag for u in urls_list for tag in (u.get('tags') or [])}),
+                'recent_urls': [
+                    {
+                        'url': u.get('url'),
+                        'status': u.get('url_status'),
+                        'date_added': u.get('date_added'),
+                        'threat': u.get('threat'),
+                        'tags': u.get('tags'),
+                    }
+                    for u in urls_list[:5]
+                ],
+            }
+
         return {
             'target': target,
             'type': query_type,
             'dnsbl': dnsbl_results,
             'clickfix': clickfix_hit,
+            'urlhaus': urlhaus_result,
         }

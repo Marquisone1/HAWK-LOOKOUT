@@ -266,8 +266,11 @@
 
       // Threat feed status
       const cf = feed.clickfix || {};
+      const uh = feed.urlhaus || {};
       const dotClass = cf.last_error ? 'err' : (cf.stale ? 'warn' : 'ok');
       const statusLabel = cf.last_error ? 'Error' : (cf.stale ? 'Stale' : 'Healthy');
+      const uhDot = uh.configured ? 'ok' : 'warn';
+      const uhStatus = uh.configured ? 'Configured' : 'Not Configured';
       html += `<div class="feed-panel">
         <div class="chart-title">Threat Feed Status</div>
         <div class="feed-row"><span><span class="feed-dot ${dotClass}"></span>ClickFix Feed</span><span>${esc(statusLabel)}</span></div>
@@ -275,6 +278,10 @@
         <div class="feed-row"><span style="color:var(--muted)">Last Refresh</span><span>${cf.last_refresh ? new Date(cf.last_refresh + 'Z').toLocaleString() : 'Never'}</span></div>
         <div class="feed-row"><span style="color:var(--muted)">Cache Age</span><span>${cf.age_seconds != null ? Math.round(cf.age_seconds) + 's' : '—'}</span></div>
         ${cf.last_error ? `<div class="feed-row"><span style="color:var(--danger)">Last Error</span><span style="color:var(--danger);font-size:0.82rem;">${esc(cf.last_error)}</span></div>` : ''}
+        <div style="border-top:1px solid var(--line);margin:10px 0;"></div>
+        <div class="feed-row"><span><span class="feed-dot ${uhDot}"></span>URLhaus (abuse.ch)</span><span>${esc(uhStatus)}</span></div>
+        <div class="feed-row"><span style="color:var(--muted)">Mode</span><span>Live host query per scan</span></div>
+        ${!uh.configured ? `<div class="feed-row"><span style="color:var(--warn);font-size:0.82rem;">Add your Auth-Key in Settings → URLhaus Auth-Key</span></div>` : ''}
       </div>`;
 
       el.innerHTML = html;

@@ -297,6 +297,27 @@
                autocomplete="new-password" />
         <p class="hint">Get a key at <a href="https://whoisfreaks.com" target="_blank" rel="noopener" style="color:var(--accent)">whoisfreaks.com</a>. Minimum 8 characters.</p>
       </div>
+
+      <hr class="divider" />
+      <p class="section-title">URLhaus Auth-Key (abuse.ch — Server only)</p>
+
+      <div class="form-group">
+        <label>Status</label>
+        {% if uh_key_set %}
+          <div style="color: var(--ok); font-size:0.9rem;">&#10003; Configured ({{ uh_key_hint }})</div>
+        {% else %}
+          <div style="color: var(--warn); font-size:0.9rem;">&#9888; Not set — URLhaus malware checks will be skipped.</div>
+        {% endif %}
+        <p class="hint">This key is stored server-side only and never sent to the browser.</p>
+      </div>
+
+      <div class="form-group">
+        <label for="urlhaus_auth_key">Set New URLhaus Auth-Key</label>
+        <input type="password" id="urlhaus_auth_key" name="urlhaus_auth_key"
+               placeholder="Leave blank to keep current key"
+               autocomplete="new-password" />
+        <p class="hint">Get a free Auth-Key at <a href="https://auth.abuse.ch/" target="_blank" rel="noopener" style="color:var(--accent)">auth.abuse.ch</a>. Minimum 8 characters.</p>
+      </div>
       {% endif %}
 
       <button type="submit" class="btn-save">Save Changes</button>

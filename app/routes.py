@@ -216,6 +216,7 @@ def settings():
         confirm = request.form.get("confirm_password", "")
         new_api_key = request.form.get("api_key", "").strip()
         new_wf_key = request.form.get("whoisfreak_api_key", "").strip()
+        new_urlhaus_key = request.form.get("urlhaus_auth_key", "").strip()
 
         errors = []
 
@@ -237,6 +238,9 @@ def settings():
         if new_wf_key and len(new_wf_key) < 8:
             errors.append("WhoisFreak API key must be at least 8 characters.")
 
+        if new_urlhaus_key and len(new_urlhaus_key) < 8:
+            errors.append("URLhaus Auth-Key must be at least 8 characters.")
+
         if errors:
             for e in errors:
                 flash(e, "error")
@@ -252,6 +256,9 @@ def settings():
             if is_admin and new_wf_key and api_user:
                 api_user.whoisfreak_api_key = new_wf_key
                 logger.warning(f"WhoisFreak key changed by user id={user.id} ip={request.remote_addr}")
+            if is_admin and new_urlhaus_key and api_user:
+                api_user.urlhaus_auth_key = new_urlhaus_key
+                logger.warning(f"URLhaus Auth-Key changed by user id={user.id} ip={request.remote_addr}")
             db.session.commit()
             session["site_username"] = new_username
             flash("Settings saved successfully.", "success")
@@ -262,12 +269,17 @@ def settings():
     wf_key = (api_user.whoisfreak_api_key if api_user else None) or ""
     wf_key_set = bool(wf_key)
     wf_key_hint = ("••••" + wf_key[-4:]) if len(wf_key) >= 4 else ("configured" if wf_key_set else "")
+    uh_key = (api_user.urlhaus_auth_key if api_user else None) or ""
+    uh_key_set = bool(uh_key)
+    uh_key_hint = ("••••" + uh_key[-4:]) if len(uh_key) >= 4 else ("configured" if uh_key_set else "")
     return render_template(
         "settings.html",
         current_username=user.username,
         current_api_key=current_api_key,
         wf_key_set=wf_key_set,
         wf_key_hint=wf_key_hint,
+        uh_key_set=uh_key_set,
+        uh_key_hint=uh_key_hint,
         min_password_len=12,
     )
 

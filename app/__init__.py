@@ -125,6 +125,11 @@ def _migrate_db():
             conn.execute(text("ALTER TABLE lookup_history ADD COLUMN site_user_id INTEGER"))
             logger.info("Migration: added 'site_user_id' column to lookup_history")
 
+        cols = {row[1] for row in conn.execute(text("PRAGMA table_info(users)"))}
+        if 'urlhaus_auth_key' not in cols:
+            conn.execute(text("ALTER TABLE users ADD COLUMN urlhaus_auth_key VARCHAR(255)"))
+            logger.info("Migration: added 'urlhaus_auth_key' column to users")
+
         conn.commit()
 
 def run_backup() -> str:
