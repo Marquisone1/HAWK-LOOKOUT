@@ -16,10 +16,16 @@ services:
 
     # Secrets from .env — copy .env.example to .env and fill in WHOISFREAK_API_KEY.
     # SECRET_KEY is auto-generated to /data/secret_key if omitted.
-    # Admin credentials are printed to console on first boot.
+    # Admin credentials are written to /data/first_boot_credentials.txt on first boot.
     env_file:
       - path: .env
         required: false
+
+    environment:
+      # Disable Flask-level HTTPS enforcement — Nginx handles TLS termination and
+      # HSTS. Keeping this as 'development' here prevents Talisman from force-
+      # redirecting the internal HTTP connection between Nginx and Gunicorn.
+      - FLASK_ENV=development
 
     # Limit blast radius if the container is compromised
     read_only: false      # SQLite needs write access to /data
