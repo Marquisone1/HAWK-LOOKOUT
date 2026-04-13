@@ -292,10 +292,75 @@
 
       <button type="submit" class="btn-save">Save Changes</button>
     </form>
+
+    <hr class="divider" />
+    <p class="section-title">Database Backup &amp; Restore</p>
+
+    <p class="hint" style="margin-bottom:16px;">
+      A backup is created automatically every 24 hours and stored in <code style="color:var(--accent)">/data/backups/</code> inside the container.
+      Up to 30 days of backups are kept.
+    </p>
+
+    <!-- Saved backups list -->
+    <div id="backupList" style="margin-bottom:16px; font-size:0.84rem; color:var(--muted);">Loading backups…</div>
+
+    <!-- Manual backup + export -->
+    <div style="display:flex; gap:10px; flex-wrap:wrap; margin-bottom:20px;">
+      <form method="POST" action="/backup/run" style="flex:1; min-width:160px;">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
+        <button type="submit" class="btn-save" style="background:#1a3a5a; color:var(--accent); font-size:0.92rem; padding:11px;">
+          💾 Save Backup Now
+        </button>
+      </form>
+      <a href="/backup/export" class="btn-save"
+         style="flex:1; min-width:160px; background:#0d251a; color:var(--ok); font-size:0.92rem; padding:11px; text-align:center; text-decoration:none; border-radius:10px; display:inline-block; box-sizing:border-box;">
+        ⬇ Download Database
+      </a>
+    </div>
+
+    <!-- Import / Restore -->
+    <form method="POST" action="/backup/import" enctype="multipart/form-data">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
+      <div class="form-group">
+        <label for="db_file">Restore from Backup File (.db)</label>
+        <input type="file" id="db_file" name="db_file" accept=".db"
+               style="width:100%; padding:10px 14px; border:1px solid var(--line); border-radius:10px;
+                      background:#0d1422; color:var(--text); font-size:0.9rem; cursor:pointer;" />
+        <p class="hint" style="color:#ff9b9b;">
+          ⚠ This will overwrite the live database. A safety backup is created automatically before restoring.
+          You will be logged out after a successful restore.
+        </p>
+      </div>
+      <button type="submit" class="btn-save"
+              style="background:#3a1a1a; color:#ff9b9b; font-size:0.92rem; padding:11px;"
+              onclick="return confirm('Overwrite the live database with this file? A safety backup will be created first.')">
+        ⚠ Restore Database
+      </button>
+    </form>
+
   </div>
 
   <script>
-    // No sensitive values are embedded in this page.
+    // Load backup list
+    fetch('/backup/list')
+      .then(r => r.json())
+      .then(data => {
+        const el = document.getElementById('backupList');
+        if (!data.backups || data.backups.length === 0) {
+          el.textContent = 'No backups yet. The first automatic backup runs ~60 seconds after startup.';
+          return;
+        }
+        const rows = data.backups.map(b =>
+          `<div style="display:flex;justify-content:space-between;padding:4px 0;border-bottom:1px solid var(--line);">
+            <span style="font-family:monospace;">${b.name}</span>
+            <span>${b.size_kb} KB</span>
+          </div>`
+        ).join('');
+        el.innerHTML = `<div style="max-height:160px;overflow-y:auto;">${rows}</div>`;
+      })
+      .catch(() => {
+        document.getElementById('backupList').textContent = 'Could not load backup list.';
+      });
   </script>
 </body>
 </html>

@@ -1,6 +1,11 @@
 import logging
+import os
 import secrets as _secrets
+import shutil
+import sqlite3
 import string
+import threading
+import time
 from datetime import datetime
 
 from sqlalchemy.exc import IntegrityError
@@ -82,7 +87,69 @@ def create_app():
         db.create_all()
         _bootstrap_db(app)
 
+    _start_daily_backup(app)
+
     return app
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Backup
+# ─────────────────────────────────────────────────────────────────────────────
+
+BACKUP_DIR = "/data/backups"
+BACKUP_DB_SOURCE = "/data/database.db"
+BACKUP_KEEP_DAYS = 30
+_DAILY_BACKUP_INTERVAL = 86400  # seconds
+
+
+def run_backup() -> str:
+    """
+    Create a timestamped SQLite backup using the online backup API.
+    Returns the path of the created backup file.
+    Raises OSError / sqlite3.Error on failure.
+    """
+    os.makedirs(BACKUP_DIR, exist_ok=True)
+    timestamp = datetime.utcnow().strftime("%Y%m%d-%H%M%S")
+    dest = os.path.join(BACKUP_DIR, f"database-{timestamp}.db")
+
+    src_conn = sqlite3.connect(BACKUP_DB_SOURCE)
+    dst_conn = sqlite3.connect(dest)
+    try:
+        src_conn.backup(dst_conn)
+    finally:
+        dst_conn.close()
+        src_conn.close()
+
+    # Prune old backups
+    cutoff = time.time() - BACKUP_KEEP_DAYS * 86400
+    for fname in os.listdir(BACKUP_DIR):
+        if fname.startswith("database-") and fname.endswith(".db"):
+            fpath = os.path.join(BACKUP_DIR, fname)
+            if os.path.getmtime(fpath) < cutoff:
+                os.remove(fpath)
+                logger.info(f"Backup: pruned old backup {fname}")
+
+    logger.info(f"Backup: created {dest} ({os.path.getsize(dest)} bytes)")
+    return dest
+
+
+def _start_daily_backup(app):
+    """Start a background thread that runs a backup once every 24 hours."""
+
+    def _loop():
+        # Wait 60 s after startup before first backup so the app is settled
+        time.sleep(60)
+        while True:
+            try:
+                with app.app_context():
+                    run_backup()
+            except Exception as exc:
+                logger.warning(f"Daily backup failed: {exc}")
+            time.sleep(_DAILY_BACKUP_INTERVAL)
+
+    t = threading.Thread(target=_loop, name="daily-backup", daemon=True)
+    t.start()
+    logger.info("Backup: daily backup scheduler started (first run in 60s)")
 
 
 def _bootstrap_db(app):

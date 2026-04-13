@@ -1,4 +1,8 @@
 import logging
+import os
+import shutil
+import sqlite3
+import tempfile
 
 from flask import (
     Blueprint,
@@ -9,6 +13,7 @@ from flask import (
     flash,
     request,
     jsonify,
+    send_file,
 )
 
 from .auth import web_login_required, _is_rate_limited, validate_password_strength
@@ -254,3 +259,149 @@ def settings():
         wf_key_hint=wf_key_hint,
         min_password_len=12,
     )
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Database backup / export / import
+# ─────────────────────────────────────────────────────────────────────────────
+
+_DB_PATH = "/data/database.db"
+_BACKUP_DIR = "/data/backups"
+_MAX_IMPORT_BYTES = 50 * 1024 * 1024  # 50 MB hard limit for uploaded DB
+
+
+@web_bp.route("/backup/export", methods=["GET"])
+@web_login_required
+def backup_export():
+    """Download the current database as a .db file."""
+    from datetime import datetime as _dt
+    timestamp = _dt.utcnow().strftime("%Y%m%d-%H%M%S")
+    filename = f"hawklookout-backup-{timestamp}.db"
+
+    # Stream a live SQLite backup (uses online backup API — safe while running)
+    tmp = tempfile.NamedTemporaryFile(suffix=".db", delete=False)
+    tmp.close()
+    try:
+        src = sqlite3.connect(_DB_PATH)
+        dst = sqlite3.connect(tmp.name)
+        try:
+            src.backup(dst)
+        finally:
+            dst.close()
+            src.close()
+        logger.warning(f"DB exported by session user {session.get('site_user_id')}")
+        return send_file(
+            tmp.name,
+            as_attachment=True,
+            download_name=filename,
+            mimetype="application/x-sqlite3",
+        )
+    except Exception as exc:
+        os.unlink(tmp.name)
+        logger.error(f"DB export failed: {exc}")
+        flash("Export failed. See server logs.", "error")
+        return redirect(url_for("whois.settings"))
+
+
+@web_bp.route("/backup/run", methods=["POST"])
+@web_login_required
+def backup_run():
+    """Trigger an immediate backup to /data/backups/."""
+    from app import run_backup
+    try:
+        path = run_backup()
+        fname = os.path.basename(path)
+        size_kb = round(os.path.getsize(path) / 1024, 1)
+        flash(f"Backup saved: {fname} ({size_kb} KB)", "success")
+        logger.warning(f"Manual backup triggered by session user {session.get('site_user_id')}: {path}")
+    except Exception as exc:
+        logger.error(f"Manual backup failed: {exc}")
+        flash(f"Backup failed: {exc}", "error")
+    return redirect(url_for("whois.settings"))
+
+
+@web_bp.route("/backup/import", methods=["POST"])
+@web_login_required
+def backup_import():
+    """Restore the database from an uploaded .db file."""
+    uploaded = request.files.get("db_file")
+    if not uploaded or not uploaded.filename:
+        flash("No file selected.", "error")
+        return redirect(url_for("whois.settings"))
+
+    if not uploaded.filename.endswith(".db"):
+        flash("Invalid file type. Only .db files are accepted.", "error")
+        return redirect(url_for("whois.settings"))
+
+    # Write upload to a temp file and validate it is a real SQLite DB
+    tmp = tempfile.NamedTemporaryFile(suffix=".db", delete=False)
+    try:
+        chunk_size = 64 * 1024
+        total = 0
+        while True:
+            chunk = uploaded.stream.read(chunk_size)
+            if not chunk:
+                break
+            total += len(chunk)
+            if total > _MAX_IMPORT_BYTES:
+                raise ValueError(f"Upload exceeds {_MAX_IMPORT_BYTES // (1024*1024)} MB limit")
+            tmp.write(chunk)
+        tmp.close()
+
+        # Validate: must be a readable SQLite file with expected tables
+        conn = sqlite3.connect(tmp.name)
+        try:
+            tables = {r[0] for r in conn.execute("SELECT name FROM sqlite_master WHERE type='table'").fetchall()}
+        finally:
+            conn.close()
+
+        required = {"site_user", "user"}
+        missing = required - {t.lower() for t in tables}
+        if missing:
+            raise ValueError(f"Uploaded file is missing required tables: {missing}")
+
+        # Back up current DB before overwriting
+        from app import run_backup
+        try:
+            run_backup()
+        except Exception as exc:
+            logger.warning(f"Pre-import backup failed (continuing anyway): {exc}")
+
+        # Atomically replace the live database
+        shutil.copyfile(tmp.name, _DB_PATH)
+        logger.warning(
+            f"DB restored from upload by session user {session.get('site_user_id')} "
+            f"({total} bytes, tables: {tables})"
+        )
+        flash("Database restored successfully. Please log in again.", "success")
+        session.clear()
+        return redirect(url_for("whois.login"))
+
+    except Exception as exc:
+        logger.error(f"DB import failed: {exc}")
+        flash(f"Import failed: {exc}", "error")
+        return redirect(url_for("whois.settings"))
+    finally:
+        try:
+            os.unlink(tmp.name)
+        except OSError:
+            pass
+
+
+@web_bp.route("/backup/list", methods=["GET"])
+@web_login_required
+def backup_list():
+    """Return a JSON list of available backup files."""
+    try:
+        files = []
+        if os.path.isdir(_BACKUP_DIR):
+            for fname in sorted(os.listdir(_BACKUP_DIR), reverse=True):
+                if fname.startswith("database-") and fname.endswith(".db"):
+                    fpath = os.path.join(_BACKUP_DIR, fname)
+                    files.append({
+                        "name": fname,
+                        "size_kb": round(os.path.getsize(fpath) / 1024, 1),
+                    })
+        return jsonify({"backups": files})
+    except Exception as exc:
+        return jsonify({"error": str(exc)}), 500
