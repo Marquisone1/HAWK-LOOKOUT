@@ -1,14 +1,18 @@
 services:
   whois:
-    build: .
+    build:
+      context: .
+      args:
+        APP_UID: ${APP_UID:-1000}
+        APP_GID: ${APP_GID:-1000}
     image: hawk-lookout:latest
     container_name: hawk-lookout
     restart: unless-stopped
 
     # Bind to localhost only — Nginx proxies public traffic to this port.
-    # Never expose 3000 directly to the internet.
+    # WHOIS_HOST_PORT lets you pick a custom host port (default: 3000).
     ports:
-      - "127.0.0.1:3000:3000"
+      - "127.0.0.1:${WHOIS_HOST_PORT:-3000}:3000"
 
     # SQLite database persisted on the host so data survives container rebuilds
     volumes:

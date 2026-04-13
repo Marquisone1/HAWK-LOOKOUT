@@ -1,6 +1,6 @@
-# 🦅 HAWK LOOKOUT v1.2
+# 🦅 HAWK LOOKOUT v2.0
 
-**Minimal WHOIS reconnaissance tool for IPs and domains.**  
+**Minimal WHOIS reconnaissance tool for IPs and domains — now with free fallback services.**  
 Self-hosted, Docker-ready, login-protected, with a REST API and a clean dark/light web UI.
 
 > **⚠️ This is a fun vibe-coded side project — not enterprise software.**  
@@ -9,10 +9,26 @@ Self-hosted, Docker-ready, login-protected, with a REST API and a clean dark/lig
 
 ---
 
-## What's New in v1.2
+## What's New in v2.0
 
-- **URLhaus Integration** — Live malware host checks via the [abuse.ch URLhaus API](https://urlhaus-api.abuse.ch/). Shows malware URL count, online/offline status, threat tags (e.g. "emotet", "Gozi"), and recent malware URLs — all inline with scan results. Requires a free Auth-Key from [auth.abuse.ch](https://auth.abuse.ch/).
-- **Security Patch (v1.1.1)** — Session role revalidation on every request, constant-time API key comparison, admin-only backup routes, username length caps, POST logout, nginx body limit fix.
+### Major Features
+- **Fallback Services** — When WhoisFreak API is unavailable or depleted, automatically fallback to free services: IP-API for geolocation/threat intel, dnspython for comprehensive DNS records—no API key needed.
+- **Admin Fallback Toggle** — New admin panel setting to manually switch between WhoisFreak API and free fallback services (useful for rate-limit testing or offline scenarios).
+- **Enhanced DNS Intelligence** — 12+ DNS record types (A, AAAA, MX, NS, SOA, TXT, SPF, DMARC, CAA, TLSA), plus SSL/TLS certificate extraction and HTTP security header inspection.
+- **Comprehensive IP Geolocation** — Location (continent, country, region, city, timezone), network details (ISP, ASN, connection type), threat analysis (proxy, VPN, Tor, hosting detection), and reverse DNS lookup.
+- **Source Tracking** — All lookups now include a `source` field in the database and API response, showing which service was used ("WhoisFreak", "IP-API", or "DNS").
+- **Expandable DNS Records** — Long DNS records (SPF, DMARC, CAA, TLSA, TXT) automatically truncate in card view with a "Show full record" dropdown for detailed inspection.
+
+### Bug Fixes & Improvements
+- Removed deprecated RDAP service (socket-based WHOIS fallback)
+- Fixed toggle switch UI responsiveness and event delegation
+- Added proper fallback routing based on target type (domain→DNS, IP→IP-API)
+- Improved error handling for failed service lookups
+- Database migration support for new fields (`prefer_fallback`, `source`)
+
+### v1.2
+- **URLhaus Integration** — Live malware host checks via the [abuse.ch URLhaus API](https://urlhaus-api.abuse.ch/). Shows malware URL count, online/offline status, threat tags, and recent malware URLs.
+- **Security Patch (v1.1.1)** — Session role revalidation, constant-time API key comparison, admin-only backup routes, username length caps, POST logout.
 
 ### v1.1
 
@@ -52,12 +68,14 @@ Self-hosted, Docker-ready, login-protected, with a REST API and a clean dark/lig
 
 ```bash
 # 1. Clone the repo
-git clone https://github.com/Marquisone1/WHO hawk-lookout
+git clone https://github.com/Marquisone1/HAWK-LOOKOUT hawk-lookout
 cd hawk-lookout
 
 # 2. (Optional) set your WhoisFreak key upfront
 cp .env.example .env
 # Edit .env and set WHOISFREAK_API_KEY=your_key_here
+# Optional: set WHOIS_HOST_PORT=8080 for a custom host port
+# Optional (Ubuntu): set APP_UID/APP_GID to your server user ids (often 1000)
 
 # 3. Start
 docker compose up -d
@@ -71,7 +89,7 @@ docker compose exec whois cat /data/first_boot_credentials.txt
 
 > **Delete this file after reading it** and change your password in Settings immediately.
 
-The web UI is available at **http://localhost:3000** (or your domain over HTTPS).
+The web UI is available at **http://localhost:${WHOIS_HOST_PORT:-3000}** (or your domain over HTTPS).
 
 ---
 
@@ -82,7 +100,10 @@ All settings are optional — the app works out of the box without any `.env` fi
 | Variable | Default | Description |
 |---|---|---|
 | `SECRET_KEY` | auto-generated | Flask session secret. Auto-generated and persisted to `/data/secret_key` if not set. |
-| `WHOISFREAK_API_KEY` | _(empty)_ | Your [WhoisFreak](https://whoisfreakapi.com/) API key. Can also be set via the Settings page after login. |
+| `WHOISFREAK_API_KEY` | _(empty)_ | Your [WhoisFreak](https://whoisfreakapi.com/) API key. Optional — if not set, the app will use free fallback services (IP-API + dnspython). Can also be set via Settings after login. |
+| `WHOIS_HOST_PORT` | `3000` | Host port published by Docker (`127.0.0.1:<port>:3000`). Set this to run on a custom local port. |
+| `APP_UID` | `1000` | Build-time UID for container user. Set to your host user id to avoid bind-mount permission issues on `./data`. |
+| `APP_GID` | `1000` | Build-time GID for container group. Set to your host group id for `./data` write compatibility. |
 | `FLASK_ENV` | `production` | Set to `development` for local dev (disables HTTPS enforcement and secure cookies). |
 | `FLASK_PORT` | `8000` | Internal port for `flask run` (local dev only). Docker uses port `3000`. |
 
