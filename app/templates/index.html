@@ -3,6 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="csrf-token" content="{{ csrf_token() }}" />
   <title>HAWK LOOKOUT</title>
   <style>
     :root {
@@ -445,8 +446,8 @@
   </main>
 
   <script>
-    // API key injected server-side from the database
-    const APP_API_KEY = {{ api_key | tojson }};
+    // CSRF token for session-authenticated API calls — real API key never reaches the browser
+    const CSRF_TOKEN = document.querySelector('meta[name="csrf-token"]').getAttribute('content');
 
     const targetEl = document.getElementById("target");
     const scanBtn = document.getElementById("scanBtn");
@@ -797,11 +798,11 @@
       showLoader("🦅 Hawk is scanning the target...");
 
       try {
-        const resp = await fetch("/lookup", {
+        const resp = await fetch("/web/lookup", {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
-            "X-API-Key": APP_API_KEY
+            "X-CSRFToken": CSRF_TOKEN
           },
           body: JSON.stringify({ target })
         });
@@ -832,8 +833,8 @@
       showLoader("🦅 Hawk is loading history...");
 
       try {
-        const resp = await fetch("/history?limit=50", {
-          headers: { "X-API-Key": APP_API_KEY }
+        const resp = await fetch("/web/history?limit=50", {
+          headers: { "X-CSRFToken": CSRF_TOKEN }
         });
         const payload = await resp.json();
 
@@ -901,9 +902,9 @@
     clearBtn.addEventListener("click", async () => {
       if (!confirm("Delete all history entries?")) return;
       try {
-        const resp = await fetch("/history", {
+        const resp = await fetch("/web/history/clear", {
           method: "DELETE",
-          headers: { "X-API-Key": APP_API_KEY }
+          headers: { "X-CSRFToken": CSRF_TOKEN }
         });
         const payload = await resp.json();
         if (resp.ok) {
@@ -923,9 +924,9 @@
     async function deleteEntry(id, btn) {
       btn.disabled = true;
       try {
-        const resp = await fetch(`/history/${id}`, {
+        const resp = await fetch(`/web/history/${id}`, {
           method: "DELETE",
-          headers: { "X-API-Key": APP_API_KEY }
+          headers: { "X-CSRFToken": CSRF_TOKEN }
         });
         if (resp.ok) {
           btn.closest("tr").remove();
@@ -975,8 +976,8 @@
       if (!blSection) return;
       blSection.innerHTML = `<p style="color:var(--muted);font-size:0.82rem;margin:0 0 8px;">🔍 Checking blacklists &amp; threat feeds…</p>`;
       try {
-        const resp = await fetch(`/blacklist?target=${encodeURIComponent(target)}`, {
-          headers: { "X-API-Key": APP_API_KEY }
+        const resp = await fetch(`/web/blacklist?target=${encodeURIComponent(target)}`, {
+          headers: { "X-CSRFToken": CSRF_TOKEN }
         });
         const bl = await resp.json();
         if (!resp.ok) { blSection.innerHTML = ""; return; }

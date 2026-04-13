@@ -1,4 +1,5 @@
 import logging
+import re
 import threading
 from collections import defaultdict
 from datetime import datetime, timedelta
@@ -105,3 +106,26 @@ def web_login_required(f):
         return f(*args, **kwargs)
 
     return decorated
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Password strength validation
+# ─────────────────────────────────────────────────────────────────────────────
+
+_MIN_PASSWORD_LEN = 12
+
+
+def validate_password_strength(password: str) -> list[str]:
+    """Return a list of error strings; empty list means the password is acceptable."""
+    errors = []
+    if len(password) < _MIN_PASSWORD_LEN:
+        errors.append(f"Password must be at least {_MIN_PASSWORD_LEN} characters.")
+    if not re.search(r"[A-Z]", password):
+        errors.append("Password must contain at least one uppercase letter.")
+    if not re.search(r"[a-z]", password):
+        errors.append("Password must contain at least one lowercase letter.")
+    if not re.search(r"[0-9]", password):
+        errors.append("Password must contain at least one digit.")
+    if not re.search(r"[!@#$%^&*()\-_=+\[\]{};:',.<>?/\\|`~]", password):
+        errors.append("Password must contain at least one special character.")
+    return errors

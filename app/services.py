@@ -173,11 +173,15 @@ class BlacklistService:
         ('dbl.spamhaus.org', 'Spamhaus DBL'),
         ('multi.surbl.org', 'SURBL'),
     ]
-    # Always fetches latest version of the list
+    # NOTE: This URL should be pinned to a specific commit hash for production use.
+    # To update: visit the gist, copy a revision SHA from the revision history,
+    # then replace /raw/ with /raw/<commit-sha>/ in the URL below.
     CLICKFIX_URL = (
         'https://gist.githubusercontent.com/cdup07/'
         '9f563dfb78a06fad5db794f33ba93a3f/raw/clickfix_domains.txt'
     )
+    _CLICKFIX_MAX_BYTES = 5 * 1024 * 1024   # 5 MB sanity cap
+    _CLICKFIX_MAX_ENTRIES = 500_000          # reject implausibly large lists
     _clickfix_cache = None
     _clickfix_ts = 0.0
     _clickfix_ttl = 3600.0  # refresh every hour
@@ -194,11 +198,15 @@ class BlacklistService:
             try:
                 resp = requests.get(self.CLICKFIX_URL, timeout=10)
                 resp.raise_for_status()
+                if len(resp.content) > self._CLICKFIX_MAX_BYTES:
+                    raise ValueError(f"ClickFix response too large ({len(resp.content)} bytes)")
                 domains = {
                     line.strip().lower()
                     for line in resp.text.splitlines()
-                    if line.strip()
+                    if line.strip() and not line.startswith("#")
                 }
+                if len(domains) > self._CLICKFIX_MAX_ENTRIES:
+                    raise ValueError(f"ClickFix list suspiciously large ({len(domains)} entries)")
                 BlacklistService._clickfix_cache = domains
                 BlacklistService._clickfix_ts = time.time()
                 logger.info(f"ClickFix list refreshed: {len(domains)} entries")

@@ -32,6 +32,6 @@ USER appuser
 
 EXPOSE 3000
 
-# 2 sync workers is plenty for a single-user WHOIS tool.
-# Increase -w if you expect concurrent users.
-CMD ["gunicorn", "-w", "2", "-b", "0.0.0.0:3000", "--timeout", "30", "--access-logfile", "-", "--error-logfile", "-", "wsgi:app"]
+# Single worker ensures in-memory rate limiting state is shared correctly.
+# Increase -w only if you add a Redis-backed rate limiter.
+CMD ["gunicorn", "-w", "1", "-b", "0.0.0.0:3000", "--timeout", "30", "--access-logfile", "-", "--error-logfile", "-", "wsgi:app"]

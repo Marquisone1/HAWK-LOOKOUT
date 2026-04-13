@@ -62,8 +62,8 @@ class Config:
     # Session expires after 8 hours of inactivity
     PERMANENT_SESSION_LIFETIME = 28800
 
-    # Session cookie — must be sent over plain HTTP when not behind TLS
-    SESSION_COOKIE_SECURE = False
+    # Session cookie security — True in production (HTTPS), False for local dev
+    SESSION_COOKIE_SECURE = os.getenv("FLASK_ENV", "production") == "production"
     SESSION_COOKIE_HTTPONLY = True
     SESSION_COOKIE_SAMESITE = "Lax"
 

@@ -51,12 +51,16 @@ def create_app():
     csrf = CSRFProtect(app)
     csrf.exempt(api_bp)
 
-    # Security headers.  Nginx handles TLS termination and HSTS — disable those here.
+    # Security headers.
+    # force_https and HSTS are enabled in production; disabled in local dev
+    # so that `flask run` works without TLS.
+    _in_production = app.config.get("FLASK_ENV", "production") == "production"
     Talisman(
         app,
         content_security_policy=_CSP,
-        force_https=False,
-        strict_transport_security=False,
+        force_https=_in_production,
+        strict_transport_security=_in_production,
+        strict_transport_security_max_age=31536000,
         frame_options="DENY",
         x_content_type_options=True,
         referrer_policy="strict-origin-when-cross-origin",
@@ -65,6 +69,14 @@ def create_app():
     db.init_app(app)
     app.register_blueprint(web_bp)
     app.register_blueprint(api_bp)
+
+    @app.after_request
+    def set_cache_headers(response):
+        """Prevent browsers from caching sensitive HTML pages."""
+        if response.content_type and response.content_type.startswith("text/html"):
+            response.headers["Cache-Control"] = "no-store, no-cache, must-revalidate, max-age=0"
+            response.headers["Pragma"] = "no-cache"
+        return response
 
     with app.app_context():
         db.create_all()
@@ -92,13 +104,27 @@ def _bootstrap_db(app):
             db.session.rollback()
         else:
             border = "=" * 58
-            print(f"\n{border}", flush=True)
-            print("  HAWK LOOKOUT \u2014 FIRST BOOT CREDENTIALS", flush=True)
-            print(f"  Username : {username}", flush=True)
-            print(f"  Password : {password}", flush=True)
-            print("  Change these immediately in Settings!", flush=True)
-            print(f"{border}\n", flush=True)
-            logger.info("Bootstrap: admin created \u2014 credentials printed to console.")
+            creds_path = "/data/first_boot_credentials.txt"
+            creds_content = (
+                f"{border}\n"
+                f"  HAWK LOOKOUT \u2014 FIRST BOOT CREDENTIALS\n"
+                f"  Username : {username}\n"
+                f"  Password : {password}\n"
+                f"  Change these immediately in Settings!\n"
+                f"{border}\n"
+            )
+            try:
+                import stat
+                with open(creds_path, "w") as cf:
+                    cf.write(creds_content)
+                import os as _os
+                _os.chmod(creds_path, stat.S_IRUSR | stat.S_IWUSR)
+            except Exception as e:
+                logger.warning(f"Could not write credentials file: {e}")
+            logger.warning(
+                f"Bootstrap: admin created. Credentials written to {creds_path} — "
+                "read and delete this file, then change your password in Settings."
+            )
 
     # ── API-key user (dedup + ensure one row) ────────────────────────────────
     all_users = User.query.order_by(User.id).all()
