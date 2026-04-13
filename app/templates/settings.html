@@ -1,0 +1,301 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>HAWK LOOKOUT — Settings</title>
+  <style>
+    :root {
+      --bg: #0a0f1a;
+      --panel: #121a2a;
+      --line: #243149;
+      --text: #e6eefc;
+      --muted: #9aa8c3;
+      --accent: #4cc9f0;
+      --ok: #80ed99;
+      --warn: #ffb703;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+      background: radial-gradient(circle at top right, #18263d 0%, var(--bg) 45%);
+      color: var(--text);
+      min-height: 100vh;
+      display: grid;
+      place-items: center;
+      padding: 16px;
+    }
+
+    .settings-card {
+      width: 100%;
+      max-width: 580px;
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 16px;
+      padding: 40px 40px 44px;
+    }
+
+    .top-nav {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 32px;
+      padding-bottom: 20px;
+      border-bottom: 1px solid var(--line);
+    }
+
+    .nav-back {
+      text-decoration: none;
+      color: var(--muted);
+      font-size: 0.9rem;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      transition: color 0.15s;
+    }
+
+    .nav-back:hover { color: var(--accent); }
+
+    .nav-logout {
+      text-decoration: none;
+      color: #ff9b9b;
+      font-size: 0.88rem;
+      border: 1px solid #6d2a2a;
+      padding: 6px 14px;
+      border-radius: 8px;
+      transition: border-color 0.15s;
+    }
+
+    .nav-logout:hover { border-color: #ff9b9b; }
+
+    h1 {
+      margin: 0 0 4px;
+      font-size: 1.6rem;
+      letter-spacing: 0.06em;
+      color: var(--accent);
+    }
+
+    .subtitle {
+      margin: 0 0 28px;
+      color: var(--muted);
+      font-size: 0.92rem;
+    }
+
+    .section-title {
+      font-size: 0.76rem;
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+      color: var(--muted);
+      margin: 0 0 16px;
+      padding-bottom: 8px;
+      border-bottom: 1px solid var(--line);
+    }
+
+    .form-group {
+      margin-bottom: 20px;
+    }
+
+    label {
+      display: block;
+      color: var(--muted);
+      font-size: 0.76rem;
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+      margin-bottom: 8px;
+    }
+
+    input[type="text"],
+    input[type="password"] {
+      width: 100%;
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      background: #0d1422;
+      color: var(--text);
+      padding: 13px 16px;
+      font-size: 1rem;
+      outline: none;
+      transition: border-color 0.15s;
+    }
+
+    input:focus {
+      border-color: var(--accent);
+      box-shadow: 0 0 0 3px rgba(76, 201, 240, 0.12);
+    }
+
+    .btn-save {
+      width: 100%;
+      border: none;
+      border-radius: 10px;
+      background: var(--accent);
+      color: #05243a;
+      padding: 14px;
+      font-size: 1.05rem;
+      font-weight: 700;
+      cursor: pointer;
+      letter-spacing: 0.04em;
+      margin-top: 8px;
+      transition: opacity 0.15s, transform 0.1s;
+    }
+
+    .btn-save:hover {
+      opacity: 0.9;
+      transform: translateY(-1px);
+    }
+
+    .alert {
+      padding: 11px 14px;
+      border-radius: 10px;
+      font-size: 0.9rem;
+      margin-bottom: 20px;
+    }
+
+    .alert.success {
+      background: #0d251a;
+      border: 1px solid #1a5c37;
+      color: var(--ok);
+    }
+
+    .alert.error {
+      background: #231417;
+      border: 1px solid #6d2a2a;
+      color: #ff9b9b;
+    }
+
+    .hint {
+      margin-top: 6px;
+      color: var(--muted);
+      font-size: 0.78rem;
+    }
+
+    .key-display {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .key-display input {
+      flex: 1;
+      font-family: "Courier New", monospace;
+      font-size: 0.9rem;
+      letter-spacing: 0.04em;
+    }
+
+    .btn-toggle-key {
+      flex-shrink: 0;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: #0f1e34;
+      color: var(--muted);
+      padding: 0 14px;
+      height: 50px;
+      font-size: 0.82rem;
+      cursor: pointer;
+      white-space: nowrap;
+      transition: border-color 0.15s;
+    }
+
+    .btn-toggle-key:hover { border-color: var(--accent); color: var(--accent); }
+
+    .divider {
+      border: none;
+      border-top: 1px solid var(--line);
+      margin: 28px 0;
+    }
+  </style>
+</head>
+<body>
+  <div class="settings-card">
+    <div class="top-nav">
+      <a href="/" class="nav-back">← Back to Dashboard</a>
+      <a href="/logout" class="nav-logout">Logout</a>
+    </div>
+
+    <h1>⚙ Settings</h1>
+    <p class="subtitle">Manage your login credentials.</p>
+
+    {% with messages = get_flashed_messages(with_categories=true) %}
+      {% if messages %}
+        {% for category, message in messages %}
+          <div class="alert {{ category }}">{{ message }}</div>
+        {% endfor %}
+      {% endif %}
+    {% endwith %}
+
+    <form method="POST" action="/settings" autocomplete="off">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
+
+      <p class="section-title">Change Username</p>
+
+      <div class="form-group">
+        <label for="username">New Username</label>
+        <input type="text" id="username" name="username" value="{{ current_username }}" required autocomplete="off" />
+      </div>
+
+      <hr class="divider" />
+      <p class="section-title">Change Password</p>
+
+      <div class="form-group">
+        <label for="password">New Password</label>
+        <input type="password" id="password" name="password" placeholder="Leave blank to keep current password" autocomplete="new-password" />
+        <p class="hint">Minimum {{ min_password_len }} characters. Leave blank to keep your current password.</p>
+      </div>
+
+      <div class="form-group">
+        <label for="confirm_password">Confirm New Password</label>
+        <input type="password" id="confirm_password" name="confirm_password" placeholder="Repeat new password" autocomplete="new-password" />
+      </div>
+
+      <hr class="divider" />
+      <p class="section-title">Internal API Key (Browser → Server)</p>
+
+      <div class="form-group">
+        <label>Current Key</label>
+        <div class="key-display">
+          <input type="text" id="current_key_display"
+                 value="••••{{ current_api_key[-4:] if current_api_key|length >= 4 else '••••' }}"
+                 readonly style="cursor:default; opacity:0.7; font-family:monospace;" autocomplete="off" />
+        </div>
+        <p class="hint">Used by the browser to authenticate API calls. Shown masked — full value is never sent to the page.</p>
+      </div>
+
+      <div class="form-group">
+        <label for="api_key">Replace With New Key</label>
+        <input type="password" id="api_key" name="api_key"
+               placeholder="Leave blank to keep current key"
+               autocomplete="new-password" />
+        <p class="hint">Minimum 8 characters. Leave blank to keep the current key.</p>
+      </div>
+
+      <hr class="divider" />
+      <p class="section-title">WhoisFreak API Key (Server only)</p>
+
+      <div class="form-group">
+        <label>Status</label>
+        {% if wf_key_set %}
+          <div style="color: var(--ok); font-size:0.9rem;">&#10003; Configured ({{ wf_key_hint }})</div>
+        {% else %}
+          <div style="color: var(--warn); font-size:0.9rem;">&#9888; Not set — lookups will fail until a key is provided.</div>
+        {% endif %}
+        <p class="hint">This key is stored server-side only and never sent to the browser.</p>
+      </div>
+
+      <div class="form-group">
+        <label for="whoisfreak_api_key">Set New WhoisFreak Key</label>
+        <input type="password" id="whoisfreak_api_key" name="whoisfreak_api_key"
+               placeholder="Leave blank to keep current key"
+               autocomplete="new-password" />
+        <p class="hint">Get a key at <a href="https://whoisfreaks.com" target="_blank" rel="noopener" style="color:var(--accent)">whoisfreaks.com</a>. Minimum 8 characters.</p>
+      </div>
+
+      <button type="submit" class="btn-save">Save Changes</button>
+    </form>
+  </div>
+
+  <script>
+    // No sensitive values are embedded in this page.
+  </script>
+</body>
+</html>

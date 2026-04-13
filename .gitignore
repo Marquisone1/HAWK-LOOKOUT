@@ -1,0 +1,36 @@
+# Secrets — never commit these
+.env
+
+# SQLite database files
+*.db
+*.db-shm
+*.db-wal
+
+# Data volume (directory exists in repo as mount point, content stays on server)
+data/*
+!data/.gitkeep
+
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+.venv/
+venv/
+env/
+*.egg-info/
+dist/
+build/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Docker
+*.log
+
+# OS
+.DS_Store
+Thumbs.db

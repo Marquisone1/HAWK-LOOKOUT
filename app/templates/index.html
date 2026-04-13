@@ -1,0 +1,1032 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>HAWK LOOKOUT</title>
+  <style>
+    :root {
+      --bg: #0a0f1a;
+      --panel: #121a2a;
+      --line: #243149;
+      --text: #e6eefc;
+      --muted: #9aa8c3;
+      --accent: #4cc9f0;
+      --ok: #80ed99;
+      --warn: #ffb703;
+      --danger: #ff4d6d;
+    }
+
+    /* ── Light mode ───────────────────────────────────────────────── */
+    body.light {
+      background: radial-gradient(circle at top right, #d6e8f8 0%, #eef4fd 45%);
+      --bg: #eef4fd;
+      --panel: #fff;
+      --line: #c5d4e8;
+      --text: #1a2640;
+      --muted: #55698a;
+      --accent: #0077b6;
+      --ok: #1a7a3c;
+      --warn: #b07000;
+      --danger: #cc1a3c;
+    }
+    body.light .app           { background: #fff; border-color: #c5d4e8; }
+    body.light input           { background: #e8f0fb; color: var(--text); }
+    body.light button          { background: #dce8f8; color: var(--text); }
+    body.light button.primary  { background: var(--accent); color: #fff; }
+    body.light .panel          { background: #f5f8fe; }
+    body.light .card           { background: #edf3fc; }
+    body.light pre             { background: #e8f0fb; color: #334566; }
+    body.light .loader-track   { background: #dce8f8; }
+    body.light .chip           { background: rgba(0,0,0,0.04); }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+      background: radial-gradient(circle at top right, #18263d 0%, var(--bg) 45%);
+      color: var(--text);
+      min-height: 100vh;
+      display: grid;
+      place-items: center;
+      padding: 16px;
+    }
+
+    .app {
+      width: 100%;
+      max-width: 1800px;
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 16px;
+      padding: 32px 40px 40px;
+    }
+
+    .top-nav {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 28px;
+      padding-bottom: 20px;
+      border-bottom: 1px solid var(--line);
+    }
+
+    .nav-brand h1 {
+      margin: 0;
+      font-size: 2rem;
+      letter-spacing: 0.08em;
+      color: var(--accent);
+    }
+
+    .nav-brand .subtitle {
+      margin: 4px 0 0;
+      color: var(--muted);
+      font-size: 0.95rem;
+    }
+
+    .nav-links {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .nav-user {
+      color: var(--muted);
+      font-size: 0.88rem;
+      padding: 7px 14px;
+      border: 1px solid var(--line);
+      border-radius: 999px;
+    }
+
+    .nav-btn {
+      text-decoration: none;
+      color: var(--text);
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      padding: 8px 18px;
+      font-size: 0.9rem;
+      font-weight: 600;
+      transition: border-color 0.15s, color 0.15s;
+    }
+
+    .nav-btn:hover {
+      border-color: var(--accent);
+      color: var(--accent);
+    }
+
+    .nav-btn.logout {
+      color: #ff9b9b;
+      border-color: #3a1a1a;
+    }
+
+    .nav-btn.logout:hover {
+      border-color: #ff9b9b;
+    }
+
+    h1 {
+      margin: 0;
+      font-size: 2rem;
+      letter-spacing: 0.08em;
+      color: var(--accent);
+    }
+
+    .subtitle {
+      margin: 6px 0 22px;
+      color: var(--muted);
+      font-size: 1rem;
+    }
+
+    .grid {
+      display: grid;
+      gap: 12px;
+      grid-template-columns: 1fr auto auto;
+    }
+
+    input {
+      width: 100%;
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      background: #0d1422;
+      color: var(--text);
+      padding: 14px 18px;
+      font-size: 1.05rem;
+      outline: none;
+      transition: border-color 0.15s;
+    }
+
+    input:focus {
+      border-color: var(--accent);
+      box-shadow: 0 0 0 3px rgba(76,201,240,0.1);
+    }
+
+    button {
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      background: #0f1e34;
+      color: var(--text);
+      padding: 0 22px;
+      height: 50px;
+      font-size: 1rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: border-color 0.15s;
+    }
+
+    button.primary {
+      background: var(--accent);
+      color: #05243a;
+      border-color: transparent;
+      font-size: 1.05rem;
+    }
+
+    button:hover:not(:disabled) {
+      border-color: var(--accent);
+    }
+
+    button.primary:hover:not(:disabled) {
+      opacity: 0.9;
+    }
+
+    button:disabled { opacity: 0.6; cursor: not-allowed; }
+
+    .note {
+      margin-top: 10px;
+      color: var(--muted);
+      font-size: 0.85rem;
+    }
+
+    .status {
+      margin-top: 14px;
+      padding: 10px 12px;
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      font-size: 0.92rem;
+      color: var(--muted);
+      display: none;
+    }
+
+    .status.error { color: #ff9b9b; border-color: #6d2a2a; background: #231417; }
+    .status.info { color: var(--accent); }
+
+    .panel {
+      margin-top: 14px;
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      background: #0d1422;
+      padding: 12px;
+      display: none;
+    }
+
+    .meta {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-bottom: 10px;
+    }
+
+    .chip {
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      padding: 4px 10px;
+      font-size: 0.78rem;
+      color: var(--muted);
+    }
+
+    .chip.ok     { color: var(--ok); }
+    .chip.warn    { color: var(--warn); }
+    .chip.danger  { color: var(--danger); border-color: #5a1a27; }
+    .chip.info-blue { color: #74c0fc; border-color: #1a3a5a; }
+
+    .cards {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+      gap: 12px;
+    }
+
+    .card {
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      padding: 14px 16px;
+      background: #0b111c;
+    }
+
+    .label {
+      color: var(--muted);
+      font-size: 0.74rem;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      margin-bottom: 6px;
+    }
+
+
+    .loader {
+      margin-top: 10px;
+      display: none;
+    }
+
+    .loader-track {
+      position: relative;
+      width: 100%;
+      height: 16px;
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      background: #0b111c;
+      overflow: hidden;
+    }
+
+    .loader-fill {
+      position: absolute;
+      top: 0;
+      left: 0;
+      height: 100%;
+      width: 35%;
+      border-radius: 999px;
+      background: linear-gradient(90deg, #1aa7db, var(--accent));
+      animation: hawk-progress 1.15s ease-in-out infinite;
+    }
+
+    .hawk-runner {
+      position: absolute;
+      top: -2px;
+      left: -2%;
+      font-size: 1.1rem;
+      filter: drop-shadow(0 0 6px rgba(76, 201, 240, 0.8));
+      animation: hawk-run 1.15s ease-in-out infinite;
+      z-index: 2;
+      pointer-events: none;
+    }
+
+    .loader-caption {
+      margin-top: 6px;
+      color: var(--muted);
+      font-size: 0.82rem;
+    }
+
+    @keyframes hawk-progress {
+      0% { transform: translateX(-110%); }
+      100% { transform: translateX(340%); }
+    }
+
+    @keyframes hawk-run {
+      0% { left: -2%; }
+      100% { left: 92%; }
+    }
+    .value {
+      font-size: 0.98rem;
+      word-break: break-word;
+    }
+
+    details {
+      margin-top: 10px;
+    }
+
+    pre {
+      max-height: 260px;
+      overflow: auto;
+      margin: 8px 0 0;
+      padding: 10px;
+      border-radius: 8px;
+      border: 1px solid var(--line);
+      background: #0a1019;
+      color: #b9c7e6;
+      font-size: 0.78rem;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 8px;
+      font-size: 0.86rem;
+    }
+
+    th, td {
+      text-align: left;
+      padding: 8px;
+      border-bottom: 1px solid var(--line);
+    }
+
+    th { color: var(--muted); font-size: 0.76rem; text-transform: uppercase; }
+
+    /* ── Risk banners ─────────────────────────────────────────── */
+    .risk-banner {
+      display: flex;
+      align-items: flex-start;
+      gap: 10px;
+      margin-bottom: 10px;
+      padding: 10px 14px;
+      border-radius: 8px;
+      font-size: 0.88rem;
+      border-left: 4px solid;
+    }
+    .risk-banner .risk-icon { font-size: 1.1rem; flex-shrink: 0; margin-top: 1px; }
+    .risk-banner .risk-label { font-weight: 700; letter-spacing: 0.04em; }
+    .risk-banner .risk-detail { color: inherit; opacity: 0.8; font-size: 0.83rem; }
+    .risk-banner.risk-critical {
+      background: rgba(255,77,109,0.08);
+      border-color: var(--danger);
+      color: #ff8fa3;
+    }
+    .risk-banner.risk-warn {
+      background: rgba(255,183,3,0.07);
+      border-color: var(--warn);
+      color: #ffd166;
+    }
+    .risk-banner.risk-ok {
+      background: rgba(128,237,153,0.06);
+      border-color: var(--ok);
+      color: #80ed99;
+    }
+    .risk-banner.risk-info {
+      background: rgba(76,201,240,0.06);
+      border-color: var(--accent);
+      color: var(--accent);
+    }
+    /* Panel border glow based on highest risk */
+    .panel.risk-critical {
+      border-color: #5a1a27;
+      box-shadow: 0 0 0 1px rgba(255,77,109,0.18), inset 0 0 40px rgba(255,77,109,0.04);
+    }
+    .panel.risk-warn {
+      border-color: #5a3e00;
+      box-shadow: 0 0 0 1px rgba(255,183,3,0.18), inset 0 0 40px rgba(255,183,3,0.04);
+    }
+    .panel.risk-ok {
+      border-color: #0d4020;
+      box-shadow: 0 0 0 1px rgba(128,237,153,0.15), inset 0 0 40px rgba(128,237,153,0.03);
+    }
+
+    @media (max-width: 700px) {
+      .grid {
+        grid-template-columns: 1fr;
+      }
+
+      button {
+        height: 44px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <main class="app">
+    <nav class="top-nav">
+      <div class="nav-brand">
+        <h1>🦅 HAWK LOOKOUT</h1>
+        <p class="subtitle">Minimal WHOIS recon for IPs and domains.</p>
+      </div>
+      <div class="nav-links">
+        <span id="rateLimitBadge" class="nav-user" style="display:none;font-size:0.8rem;">⚡ <span id="rateLimitVal">—</span></span>
+        <span class="nav-user">👤 {{ session.get('site_username', 'User') }}</span>
+        <button id="themeBtn" class="nav-btn" style="padding:8px 14px;font-size:1.1rem;line-height:1;">🌙</button>
+        <a href="/settings" class="nav-btn">⚙ Settings</a>
+        <a href="/logout" class="nav-btn logout">Logout</a>
+      </div>
+    </nav>
+
+    <div class="grid">
+      <input id="target" placeholder="8.8.8.8 or example.com" />
+      <button class="primary" id="scanBtn">Scan</button>
+      <button id="historyBtn">History</button>
+      <button id="clearBtn" style="color:#ff9b9b; border-color:#3a1a1a;">Clear History</button>
+    </div>
+
+    <p class="note">Cyber Security points: IOC enrichment, ownership checks, registration age review, incident triage support.</p>
+
+    <div id="status" class="status"></div>
+    <div id="loader" class="loader">
+      <div class="loader-track">
+        <div class="loader-fill"></div>
+        <div class="hawk-runner">🦅</div>
+      </div>
+      <div class="loader-caption" id="loaderText">Recon in progress...</div>
+    </div>
+
+    <section id="result" class="panel"></section>
+    <section id="history" class="panel"></section>
+  </main>
+
+  <script>
+    // API key injected server-side from the database
+    const APP_API_KEY = {{ api_key | tojson }};
+
+    const targetEl = document.getElementById("target");
+    const scanBtn = document.getElementById("scanBtn");
+    const historyBtn = document.getElementById("historyBtn");
+    const clearBtn = document.getElementById("clearBtn");
+    const statusEl = document.getElementById("status");
+    const loaderEl = document.getElementById("loader");
+    const loaderTextEl = document.getElementById("loaderText");
+    const resultEl = document.getElementById("result");
+    const historyEl = document.getElementById("history");
+
+    function esc(v) {
+      if (v === null || v === undefined) return "-";
+      return String(v)
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/\"/g, "&quot;");
+    }
+
+    function setStatus(type, msg) {
+      statusEl.className = "status " + type;
+      statusEl.style.display = "block";
+      statusEl.innerHTML = msg;
+    }
+
+    function clearStatus() {
+      statusEl.style.display = "none";
+      statusEl.textContent = "";
+    }
+
+    function showLoader(text) {
+      loaderTextEl.textContent = text || "Recon in progress...";
+      loaderEl.style.display = "block";
+    }
+
+    function hideLoader() {
+      loaderEl.style.display = "none";
+    }
+
+    function card(label, value) {
+      return `<div class="card"><div class="label">${esc(label)}</div><div class="value">${esc(value)}</div></div>`;
+    }
+
+    function firstValue(...values) {
+      for (const v of values) {
+        if (v !== undefined && v !== null && v !== "") return v;
+      }
+      return "Unknown";
+    }
+
+    function asText(v) {
+      if (Array.isArray(v)) return v.length ? v.join(", ") : "Unknown";
+      if (v === undefined || v === null || v === "") return "Unknown";
+      if (typeof v === "object") return JSON.stringify(v);
+      return String(v);
+    }
+
+    function flattenObject(obj, prefix = "", out = []) {
+      if (obj === null || obj === undefined) return out;
+
+      if (Array.isArray(obj)) {
+        if (obj.length === 0) {
+          out.push([prefix, "[]"]);
+          return out;
+        }
+
+        if (obj.every((item) => ["string", "number", "boolean"].includes(typeof item))) {
+          out.push([prefix, obj.join(", ")]);
+          return out;
+        }
+
+        obj.forEach((item, idx) => {
+          const path = prefix ? `${prefix}[${idx}]` : `[${idx}]`;
+          flattenObject(item, path, out);
+        });
+        return out;
+      }
+
+      if (typeof obj === "object") {
+        Object.entries(obj).forEach(([k, v]) => {
+          const path = prefix ? `${prefix}.${k}` : k;
+          if (v && typeof v === "object") {
+            flattenObject(v, path, out);
+          } else {
+            out.push([path, asText(v)]);
+          }
+        });
+        return out;
+      }
+
+      out.push([prefix, asText(obj)]);
+      return out;
+    }
+
+    function renderAllFieldsDetails(data) {
+      const rows = flattenObject(data)
+        .map(([k, v]) => `<tr><td>${esc(k)}</td><td>${esc(v)}</td></tr>`)
+        .join("");
+
+      return `
+        <details>
+          <summary>All extracted fields</summary>
+          <table>
+            <thead>
+              <tr>
+                <th>Field</th>
+                <th>Value</th>
+              </tr>
+            </thead>
+            <tbody>${rows}</tbody>
+          </table>
+        </details>
+      `;
+    }
+
+    // ── Risk intelligence engine ──────────────────────────────────────────
+    const SUSPICIOUS_TLDS = new Set([
+      'xyz','top','club','work','tk','ml','ga','cf','gq','buzz','icu',
+      'live','online','site','fun','click','loan','win','racing','download',
+      'stream','cyou','cfd','vip','world','store'
+    ]);
+
+    const CLOUD_PROVIDERS = [
+      { keywords: ['amazon','aws','ec2'],          label: 'Amazon AWS' },
+      { keywords: ['google','gcp','googlecloud'],  label: 'Google Cloud' },
+      { keywords: ['microsoft','azure'],           label: 'Microsoft Azure' },
+      { keywords: ['digitalocean'],               label: 'DigitalOcean' },
+      { keywords: ['vultr'],                       label: 'Vultr' },
+      { keywords: ['hetzner'],                    label: 'Hetzner' },
+      { keywords: ['ovh','ovhcloud'],             label: 'OVH' },
+      { keywords: ['linode','akamai'],            label: 'Linode/Akamai' },
+      { keywords: ['cloudflare'],                 label: 'Cloudflare' },
+      { keywords: ['contabo'],                    label: 'Contabo' },
+    ];
+
+    const PRIVACY_KEYWORDS = ['redacted','whoisguard','privacy','withheld','protected','private','identity'];
+
+    function analyzeRisk(type, payload) {
+      const signals = [];
+
+      if (type === 'domain') {
+        const data = payload.data || {};
+        const reg  = data.registry_data || {};
+
+        // ── Registration age ──
+        const createdRaw = data.create_date || reg.create_date || data.createdDate || reg.createdDate;
+        const expiryRaw  = data.expiry_date  || reg.expiry_date  || data.expiresDate  || reg.expiresDate;
+
+        if (createdRaw) {
+          const created = new Date(createdRaw);
+          const ageDays = (Date.now() - created.getTime()) / 86400000;
+
+          if (ageDays < 30) {
+            signals.push({ level: 'critical', icon: '🚨', label: 'NEWLY REGISTERED',
+              detail: `${Math.floor(ageDays)} day${Math.floor(ageDays) === 1 ? '' : 's'} old — high phishing/typosquatting risk` });
+          } else if (ageDays < 90) {
+            signals.push({ level: 'warn', icon: '⚡', label: 'RECENT REGISTRATION',
+              detail: `${Math.floor(ageDays)} days old — exercise caution` });
+          } else if (ageDays > 1825) {
+            signals.push({ level: 'ok', icon: '✓', label: 'ESTABLISHED DOMAIN',
+              detail: `Registered ${Math.floor(ageDays / 365)} years ago` });
+          }
+
+          // ── 1-year minimum registration on a new domain ──
+          if (expiryRaw) {
+            const expiry = new Date(expiryRaw);
+            const regPeriodDays = (expiry.getTime() - created.getTime()) / 86400000;
+            const daysUntilExpiry = (expiry.getTime() - Date.now()) / 86400000;
+
+            if (daysUntilExpiry > 0 && daysUntilExpiry < 30) {
+              signals.push({ level: 'warn', icon: '⏰', label: 'EXPIRING SOON',
+                detail: `Expires in ${Math.floor(daysUntilExpiry)} days — possible abandonment` });
+            }
+            if (regPeriodDays < 400 && ageDays < 90) {
+              signals.push({ level: 'warn', icon: '📅', label: 'MINIMUM REGISTRATION PERIOD',
+                detail: '1-year registration on a new domain is a common phishing indicator' });
+            }
+          }
+        } else {
+          signals.push({ level: 'info', icon: 'ℹ', label: 'REGISTRATION DATE UNAVAILABLE',
+            detail: 'Could not determine domain age' });
+        }
+
+        // ── Suspicious TLD ──
+        const domainName = (data.domain_name || reg.domain_name || payload.target || '').toLowerCase();
+        const parts = domainName.split('.');
+        const tld = parts.length > 1 ? parts[parts.length - 1] : '';
+        if (tld && SUSPICIOUS_TLDS.has(tld)) {
+          signals.push({ level: 'warn', icon: '🚩', label: `SUSPICIOUS TLD (.${tld})`,
+            detail: `This TLD is commonly abused for phishing and malware distribution` });
+        }
+
+        // ── Privacy-protected WHOIS ──
+        const registrant = data.registrant_contact || reg.registrant_contact || {};
+        const rName = ((registrant.name || '') + ' ' + (registrant.company || '') + ' ' +
+          (data.registrantName || '') + ' ' + (data.registrantOrganization || '')).toLowerCase();
+        if (PRIVACY_KEYWORDS.some(k => rName.includes(k))) {
+          signals.push({ level: 'info', icon: '🔒', label: 'PRIVACY-PROTECTED WHOIS',
+            detail: 'Registrant identity is hidden — legitimate sites do this too, but worth noting' });
+        }
+
+      } else {
+        // ── IP signals ──
+        const data = payload.data?.ipWhois || payload.data || {};
+        const org  = data.organization || {};
+        const orgName = (org.name || '').toLowerCase();
+
+        const matched = CLOUD_PROVIDERS.find(p => p.keywords.some(k => orgName.includes(k)));
+        if (matched) {
+          signals.push({ level: 'warn', icon: '☁', label: `CLOUD / HOSTING IP  (${matched.label})`,
+            detail: 'Cloud and hosting IPs are commonly used for C2 servers, phishing infrastructure, and proxied attacks' });
+        } else if (orgName) {
+          signals.push({ level: 'ok', icon: '✓', label: 'NON-CLOUD ASN',
+            detail: `Registered to: ${org.name}` });
+        }
+      }
+
+      return signals;
+    }
+
+    function overallRisk(signals) {
+      if (signals.some(s => s.level === 'critical')) return 'critical';
+      if (signals.some(s => s.level === 'warn'))     return 'warn';
+      if (signals.some(s => s.level === 'ok'))       return 'ok';
+      return 'neutral';
+    }
+
+    function renderRiskBanner(signals) {
+      if (!signals.length) return '';
+      return signals.map(s => `
+        <div class="risk-banner risk-${s.level}">
+          <span class="risk-icon">${s.icon}</span>
+          <div>
+            <div class="risk-label">${esc(s.label)}</div>
+            <div class="risk-detail">${esc(s.detail)}</div>
+          </div>
+        </div>
+      `).join('');
+    }
+
+    function renderResult(payload) {
+      const t = payload.type;
+      const d = t === "domain" ? (payload.data || {}) : (payload.data?.ipWhois || payload.data || {});
+
+      let cards = "";
+      if (t === "domain") {
+        const reg = d.registry_data || {};
+        const registrar = d.domain_registrar || reg.domain_registrar || {};
+        const registrant = d.registrant_contact || reg.registrant_contact || {};
+        const status = Array.isArray(d.domain_status)
+          ? d.domain_status.join(", ")
+          : (Array.isArray(reg.domain_status) ? reg.domain_status.join(", ") : "Unknown");
+        const nameServers = Array.isArray(d.name_servers)
+          ? d.name_servers.join(", ")
+          : (Array.isArray(reg.name_servers) ? reg.name_servers.join(", ") : "Unknown");
+
+        cards += card("Domain", firstValue(d.domain_name, reg.domain_name, d.domainName, payload.target));
+        cards += card("Domain Registered", firstValue(d.domain_registered, reg.domain_registered, d.status));
+        cards += card("Registrar", firstValue(registrar.registrar_name, d.registrarName));
+        cards += card("Registrar IANA ID", firstValue(registrar.iana_id, d.registrarIanaId, reg.registrarIanaId));
+        cards += card("Registrar Email", firstValue(registrar.email_address, d.registrarEmail));
+        cards += card("Registrar Phone", firstValue(registrar.phone_number, d.registrarPhone));
+        cards += card("Registrar Website", firstValue(registrar.website_url, d.registrarWebsite));
+        cards += card("Created", firstValue(d.create_date, reg.create_date, d.createdDate));
+        cards += card("Updated", firstValue(d.update_date, reg.update_date, d.updatedDate));
+        cards += card("Expires", firstValue(d.expiry_date, reg.expiry_date, d.expiresDate));
+        cards += card("Query Time", firstValue(d.query_time, reg.query_time));
+        cards += card("Registrant Company", firstValue(registrant.company, d.registrantOrganization, d.registrantName));
+        cards += card("Registrant Country", firstValue(registrant.country_name, registrant.country_code, d.registrantCountry));
+        cards += card("Registrant State", firstValue(registrant.state, d.registrantState));
+        cards += card("WHOIS Server", firstValue(d.whois_server, reg.whois_server, d.whoisServer));
+        cards += card("Domain Status", status);
+        cards += card("Name Servers", nameServers);
+      } else {
+        // WhoisFreak IP response shape:
+        // d.ip_address, d.whois_server, d.query_time,
+        // d.organization: { name, handle, address, street, city, state, zip_code, country, date_created, date_updated }
+        // d.inet_nums: [{ start_ip, end_ip, cidr:[], net_name, ... }]
+        // d.abuse_contacts: [{ name, handle, email:[] }]
+        // d.technical_contacts: [{ name, handle, email:[] }]
+        const org      = d.organization || {};
+        const net      = Array.isArray(d.inet_nums) && d.inet_nums.length ? d.inet_nums[0] : {};
+        const abuse    = Array.isArray(d.abuse_contacts) && d.abuse_contacts.length ? d.abuse_contacts[0] : {};
+        const tech     = Array.isArray(d.technical_contacts) && d.technical_contacts.length ? d.technical_contacts[0] : {};
+
+        const cidr     = Array.isArray(net.cidr) ? net.cidr.join(", ") : (net.cidr || "Unknown");
+        const netRange = (net.start_ip && net.end_ip) ? `${net.start_ip} – ${net.end_ip}` : "Unknown";
+        const abuseEmail = Array.isArray(abuse.email) ? abuse.email.join(", ") : (abuse.email || "Unknown");
+        const techEmail  = Array.isArray(tech.email)  ? tech.email.join(", ")  : (tech.email  || "Unknown");
+
+        cards += card("IP Address",     firstValue(d.ip_address, payload.target));
+        cards += card("Organization",   firstValue(org.name));
+        cards += card("Org Handle",     firstValue(org.handle));
+        cards += card("Country",        firstValue(org.country));
+        cards += card("State/Region",   firstValue(org.state));
+        cards += card("City",           firstValue(org.city));
+        cards += card("Postal Code",    firstValue(org.zip_code));
+        cards += card("Address",        firstValue(org.address, org.street));
+        cards += card("Network Name",   firstValue(net.net_name));
+        cards += card("Network Range",  netRange);
+        cards += card("CIDR",           cidr);
+        cards += card("WHOIS Server",   firstValue(d.whois_server));
+        cards += card("Query Time",     firstValue(d.query_time));
+        cards += card("Org Created",    firstValue(org.date_created));
+        cards += card("Org Updated",    firstValue(org.date_updated));
+        cards += card("Abuse Contact",  firstValue(abuse.name));
+        cards += card("Abuse Email",    abuseEmail === "" ? "Unknown" : abuseEmail);
+        cards += card("Tech Contact",   firstValue(tech.name));
+        cards += card("Tech Email",     techEmail === "" ? "Unknown" : techEmail);
+      }
+
+      const signals  = analyzeRisk(payload.type, payload);
+      const riskLevel = overallRisk(signals);
+      const riskClassMap = { critical: 'risk-critical', warn: 'risk-warn', ok: 'risk-ok', neutral: '' };
+      resultEl.className = 'panel' + (riskClassMap[riskLevel] ? ' ' + riskClassMap[riskLevel] : '');
+
+      resultEl.innerHTML = `
+        <div id="bl-section"></div>
+        ${renderRiskBanner(signals)}
+        <div class="meta">
+          <span class="chip">Target: ${esc(payload.target)}</span>
+          <span class="chip">Type: ${esc(payload.type)}</span>
+          <span class="chip">Lookup ID: ${esc(payload.lookup_id)}</span>
+        </div>
+        <div class="cards">${cards}</div>
+        <details>
+          <summary>Raw JSON</summary>
+          <pre>${esc(JSON.stringify(payload.data, null, 2))}</pre>
+        </details>
+        ${renderAllFieldsDetails(payload.data)}
+      `;
+      resultEl.style.display = "block";
+    }
+
+    async function runScan() {
+      const target = targetEl.value.trim();
+      if (!target) {
+        setStatus("error", "Enter an IP or domain.");
+        return;
+      }
+
+      clearStatus();
+      historyEl.style.display = "none";
+      scanBtn.disabled = true;
+      scanBtn.textContent = "Scanning...";
+      setStatus("info", "Running lookup...");
+      showLoader("🦅 Hawk is scanning the target...");
+
+      try {
+        const resp = await fetch("/lookup", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "X-API-Key": APP_API_KEY
+          },
+          body: JSON.stringify({ target })
+        });
+
+        const payload = await resp.json();
+        if (!resp.ok) {
+          resultEl.style.display = "none";
+          setStatus("error", `${esc(payload.error || "Error")}: ${esc(payload.message || "Lookup failed")}`);
+          return;
+        }
+
+        clearStatus();
+        renderResult(payload);
+        updateRateLimit(payload.rate_limit);
+        checkBlacklist(payload.target, payload.type);
+      } catch (e) {
+        setStatus("error", `Request failed: ${esc(e.message)}`);
+      } finally {
+        hideLoader();
+        scanBtn.disabled = false;
+        scanBtn.textContent = "Scan";
+      }
+    }
+
+    async function loadHistory() {
+      clearStatus();
+      setStatus("info", "Loading history...");
+      showLoader("🦅 Hawk is loading history...");
+
+      try {
+        const resp = await fetch("/history?limit=50", {
+          headers: { "X-API-Key": APP_API_KEY }
+        });
+        const payload = await resp.json();
+
+        if (!resp.ok) {
+          setStatus("error", `${esc(payload.error || "Error")}: ${esc(payload.message || "History failed")}`);
+          return;
+        }
+
+        clearStatus();
+
+        if (!payload.history || payload.history.length === 0) {
+          historyEl.innerHTML = "<p class='note'>No history yet.</p>";
+          historyEl.style.display = "block";
+          return;
+        }
+
+        const rows = payload.history.map((row) => {
+          const isDomain = !!(row.result?.domain_name || row.result?.registry_data?.domain_name);
+          const detail = isDomain
+            ? (
+                row.result?.domain_registrar?.registrar_name ||
+                row.result?.registry_data?.domain_registrar?.registrar_name ||
+                row.result?.whois?.registrarName ||
+                "Unknown"
+              )
+            : (row.result?.organization?.name || "Unknown");
+
+          return `
+            <tr>
+              <td>${esc(row.ip_address)}</td>
+              <td>${esc(isDomain ? "domain" : "ip")}</td>
+              <td>${esc(detail)}</td>
+              <td>${esc(new Date(row.created_at).toLocaleString())}</td>
+              <td><button onclick="relookup('${esc(row.ip_address)}')" style="padding:2px 10px;font-size:0.78rem;">↺ Re-scan</button></td>
+              <td><button onclick="deleteEntry(${row.id}, this)" style="padding:2px 10px;font-size:0.78rem;color:#ff9b9b;border-color:#3a1a1a;">Delete</button></td>
+            </tr>
+          `;
+        }).join("");
+
+        historyEl.innerHTML = `
+          <table>
+            <thead>
+              <tr>
+                <th>Target</th>
+                <th>Type</th>
+                <th>Owner/Registrar</th>
+                <th>Time</th>
+                <th></th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody>${rows}</tbody>
+          </table>
+        `;
+        historyEl.style.display = "block";
+      } catch (e) {
+        setStatus("error", `History request failed: ${esc(e.message)}`);
+      } finally {
+        hideLoader();
+      }
+    }
+
+    scanBtn.addEventListener("click", runScan);
+    historyBtn.addEventListener("click", loadHistory);
+    clearBtn.addEventListener("click", async () => {
+      if (!confirm("Delete all history entries?")) return;
+      try {
+        const resp = await fetch("/history", {
+          method: "DELETE",
+          headers: { "X-API-Key": APP_API_KEY }
+        });
+        const payload = await resp.json();
+        if (resp.ok) {
+          historyEl.innerHTML = "<p class='note'>History cleared.</p>";
+          historyEl.style.display = "block";
+        } else {
+          setStatus("error", `Clear failed: ${esc(payload.error || "Unknown error")}`);
+        }
+      } catch (e) {
+        setStatus("error", `Clear failed: ${esc(e.message)}`);
+      }
+    });
+    targetEl.addEventListener("keydown", (e) => {
+      if (e.key === "Enter") runScan();
+    });
+
+    async function deleteEntry(id, btn) {
+      btn.disabled = true;
+      try {
+        const resp = await fetch(`/history/${id}`, {
+          method: "DELETE",
+          headers: { "X-API-Key": APP_API_KEY }
+        });
+        if (resp.ok) {
+          btn.closest("tr").remove();
+        } else {
+          btn.disabled = false;
+        }
+      } catch (e) {
+        btn.disabled = false;
+      }
+    }
+
+    // ── Re-lookup from history ────────────────────────────────────────────────
+    function relookup(target) {
+      targetEl.value = target;
+      historyEl.style.display = "none";
+      runScan();
+    }
+
+    // ── Theme toggle ──────────────────────────────────────────────────────
+    const themeBtn = document.getElementById("themeBtn");
+    function applyTheme(light) {
+      document.body.classList.toggle("light", light);
+      themeBtn.textContent = light ? "☀" : "🌙";
+    }
+    applyTheme(localStorage.getItem("theme") === "light");
+    themeBtn.addEventListener("click", () => {
+      const isLight = !document.body.classList.contains("light");
+      applyTheme(isLight);
+      localStorage.setItem("theme", isLight ? "light" : "dark");
+    });
+
+    // ── Rate limit badge ──────────────────────────────────────────────────
+    function updateRateLimit(rl) {
+      if (!rl || !Object.keys(rl).length) return;
+      const badge = document.getElementById("rateLimitBadge");
+      const val   = document.getElementById("rateLimitVal");
+      const entry = Object.entries(rl).find(([k]) => k.toLowerCase().includes("remaining"));
+      if (entry) {
+        val.textContent = `${entry[1]} rem.`;
+        badge.style.display = "";
+      }
+    }
+
+    // ── Blacklist / ClickFix check ────────────────────────────────────────────
+    async function checkBlacklist(target, queryType) {
+      const blSection = document.getElementById("bl-section");
+      if (!blSection) return;
+      blSection.innerHTML = `<p style="color:var(--muted);font-size:0.82rem;margin:0 0 8px;">🔍 Checking blacklists &amp; threat feeds…</p>`;
+      try {
+        const resp = await fetch(`/blacklist?target=${encodeURIComponent(target)}`, {
+          headers: { "X-API-Key": APP_API_KEY }
+        });
+        const bl = await resp.json();
+        if (!resp.ok) { blSection.innerHTML = ""; return; }
+        blSection.innerHTML = renderBlacklistBanners(bl);
+        const anyHit = bl.clickfix || (bl.dnsbl || []).some(d => d.listed);
+        if (anyHit && !resultEl.classList.contains("risk-critical")) {
+          resultEl.classList.remove("risk-warn", "risk-ok");
+          resultEl.classList.add("risk-critical");
+        }
+      } catch (e) {
+        blSection.innerHTML = "";
+      }
+    }
+
+    function renderBlacklistBanners(bl) {
+      let html = "";
+      if (bl.clickfix === true) {
+        html += `
+          <div class="risk-banner risk-critical">
+            <span class="risk-icon">☠️</span>
+            <div>
+              <div class="risk-label">CLICKFIX CAMPAIGN — KNOWN THREAT</div>
+              <div class="risk-detail">Listed in the ClickFix active threat feed (fetched live — last updated ${new Date().toLocaleDateString()}). Associated with fake CAPTCHA &amp; browser-fix social engineering attacks. Pivot to Recorded Future, ANY.RUN, or VirusTotal for IOC enrichment.</div>
+            </div>
+          </div>`;
+      }
+      const listed = (bl.dnsbl || []).filter(d => d.listed);
+      if (listed.length) {
+        html += `
+          <div class="risk-banner risk-critical">
+            <span class="risk-icon">🚫</span>
+            <div>
+              <div class="risk-label">BLACKLISTED ON ${listed.length} DNSBL${listed.length > 1 ? "S" : ""}</div>
+              <div class="risk-detail">${esc(listed.map(d => d.list).join(" · "))}</div>
+            </div>
+          </div>`;
+      }
+      const clean = (bl.dnsbl || []).filter(d => !d.listed);
+      if (clean.length && bl.clickfix !== true) {
+        html += `
+          <div class="risk-banner risk-ok">
+            <span class="risk-icon">✓</span>
+            <div>
+              <div class="risk-label">CLEAN ON ${clean.length} DNSBL${clean.length > 1 ? "S" : ""}</div>
+              <div class="risk-detail">${esc(clean.map(d => d.list).join(" · "))}</div>
+            </div>
+          </div>`;
+      }
+      return html;
+    }
+  </script>
+</body>
+</html>
