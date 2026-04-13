@@ -337,10 +337,18 @@ class BlacklistService:
 
         # URLhaus host query
         urlhaus_data = self._query_urlhaus_host(clean_target)
-        urlhaus_result = None
-        if urlhaus_data and urlhaus_data.get('query_status') == 'ok':
+        urlhaus_result = {'status': 'not_configured'}
+        auth_key = self._get_urlhaus_auth_key()
+        if not auth_key:
+            urlhaus_result = {'status': 'not_configured'}
+        elif urlhaus_data is None:
+            urlhaus_result = {'status': 'error'}
+        elif urlhaus_data.get('query_status') == 'no_results':
+            urlhaus_result = {'status': 'clean'}
+        elif urlhaus_data.get('query_status') == 'ok':
             urls_list = urlhaus_data.get('urls') or []
             urlhaus_result = {
+                'status': 'found',
                 'host': urlhaus_data.get('host'),
                 'url_count': int(urlhaus_data.get('url_count', 0)),
                 'firstseen': urlhaus_data.get('firstseen'),
@@ -360,6 +368,8 @@ class BlacklistService:
                     for u in urls_list[:5]
                 ],
             }
+        else:
+            urlhaus_result = {'status': 'error'}
 
         return {
             'target': target,

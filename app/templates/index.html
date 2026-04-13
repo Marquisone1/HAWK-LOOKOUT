@@ -986,7 +986,7 @@
         const bl = await resp.json();
         if (!resp.ok) { blSection.innerHTML = ""; return; }
         blSection.innerHTML = renderBlacklistBanners(bl);
-        const anyHit = bl.clickfix || (bl.dnsbl || []).some(d => d.listed) || (bl.urlhaus && bl.urlhaus.url_count > 0);
+        const anyHit = bl.clickfix || (bl.dnsbl || []).some(d => d.listed) || (bl.urlhaus && bl.urlhaus.status === 'found' && bl.urlhaus.url_count > 0);
         if (anyHit && !resultEl.classList.contains("risk-critical")) {
           resultEl.classList.remove("risk-warn", "risk-ok");
           resultEl.classList.add("risk-critical");
@@ -1009,16 +1009,45 @@
           </div>`;
       }
 
-      // URLhaus malware distribution check
+      // URLhaus malware distribution check — always show feedback
+      const URLHAUS_DISCLAIMER = "Not listed does not guarantee the target is safe — it only means URLhaus has no records for this host.";
       if (bl.urlhaus) {
         const uh = bl.urlhaus;
-        const onlineCount = uh.urls_online || 0;
-        const totalCount = uh.url_count || 0;
-        const tags = (uh.tags || []).map(t => esc(t)).join(", ");
-        const level = onlineCount > 0 ? "critical" : (totalCount > 0 ? "warn" : "ok");
-        const icon = onlineCount > 0 ? "🦠" : (totalCount > 0 ? "⚠️" : "✓");
 
-        if (totalCount > 0) {
+        if (uh.status === 'not_configured') {
+          html += `
+            <div class="risk-banner risk-info">
+              <span class="risk-icon">ℹ</span>
+              <div>
+                <div class="risk-label">URLHAUS — NOT CONFIGURED</div>
+                <div class="risk-detail">Add your free Auth-Key in Settings to enable URLhaus malware host checks. Get one at <a href="https://auth.abuse.ch/" target="_blank" rel="noopener" style="color:inherit;text-decoration:underline;">auth.abuse.ch</a>.</div>
+              </div>
+            </div>`;
+        } else if (uh.status === 'error') {
+          html += `
+            <div class="risk-banner risk-info">
+              <span class="risk-icon">⚠️</span>
+              <div>
+                <div class="risk-label">URLHAUS — QUERY FAILED</div>
+                <div class="risk-detail">Could not reach the URLhaus API. The check will be retried on the next scan.</div>
+              </div>
+            </div>`;
+        } else if (uh.status === 'clean') {
+          html += `
+            <div class="risk-banner risk-ok">
+              <span class="risk-icon">✓</span>
+              <div>
+                <div class="risk-label">URLHAUS — NO RECORDS FOUND</div>
+                <div class="risk-detail">This host has no malware URLs tracked by URLhaus (abuse.ch). ${URLHAUS_DISCLAIMER}</div>
+              </div>
+            </div>`;
+        } else if (uh.status === 'found') {
+          const onlineCount = uh.urls_online || 0;
+          const totalCount = uh.url_count || 0;
+          const tags = (uh.tags || []).map(t => esc(t)).join(", ");
+          const level = onlineCount > 0 ? "critical" : "warn";
+          const icon = onlineCount > 0 ? "🦠" : "⚠️";
+
           let detail = `${totalCount} malware URL${totalCount !== 1 ? "s" : ""} tracked by URLhaus`;
           if (onlineCount > 0) detail += ` (${onlineCount} currently online)`;
           else detail += " (all offline)";
