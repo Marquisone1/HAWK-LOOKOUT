@@ -64,11 +64,11 @@ class WhoisFreakService:
 
     # ── Public entry point ────────────────────────────────────────────────────
 
-    def lookup(self, target: str, user):
+    def lookup(self, target: str, user, site_user_id=None):
         if self.is_ip(target):
-            return self._lookup_ip(target, user)
+            return self._lookup_ip(target, user, site_user_id=site_user_id)
         elif self.is_domain(target):
-            return self._lookup_domain(target, user)
+            return self._lookup_domain(target, user, site_user_id=site_user_id)
         else:
             return (
                 {
@@ -80,7 +80,7 @@ class WhoisFreakService:
 
     # ── IP WHOIS ──────────────────────────────────────────────────────────────
 
-    def _lookup_ip(self, target: str, user):
+    def _lookup_ip(self, target: str, user, site_user_id=None):
         logger.info(f"WhoisFreak IP lookup: {target}")
         try:
             resp = requests.get(
@@ -94,7 +94,7 @@ class WhoisFreakService:
                 logger.error(f"WhoisFreak IP error {resp.status_code}: {resp.text[:200]}")
                 return {"error": f"WhoisFreak API error (HTTP {resp.status_code})"}, 502
 
-            return self._save_and_return(target, "ip", resp.json(), user, self._extract_rate_limit(resp))
+            return self._save_and_return(target, "ip", resp.json(), user, self._extract_rate_limit(resp), site_user_id=site_user_id)
 
         except requests.exceptions.Timeout:
             return {"error": "Request timed out"}, 504
@@ -106,7 +106,7 @@ class WhoisFreakService:
 
     # ── Domain WHOIS ──────────────────────────────────────────────────────────
 
-    def _lookup_domain(self, target: str, user):
+    def _lookup_domain(self, target: str, user, site_user_id=None):
         domain = re.sub(r"^www\.", "", target.lower())
         logger.info(f"WhoisFreak domain lookup: {domain}")
         try:
@@ -121,7 +121,7 @@ class WhoisFreakService:
                 logger.error(f"WhoisFreak domain error {resp.status_code}: {resp.text[:200]}")
                 return {"error": f"WhoisFreak API error (HTTP {resp.status_code})"}, 502
 
-            return self._save_and_return(domain, "domain", resp.json(), user, self._extract_rate_limit(resp))
+            return self._save_and_return(domain, "domain", resp.json(), user, self._extract_rate_limit(resp), site_user_id=site_user_id)
 
         except requests.exceptions.Timeout:
             return {"error": "Request timed out"}, 504
@@ -133,11 +133,12 @@ class WhoisFreakService:
 
     # ── Persist and return ────────────────────────────────────────────────────
 
-    def _save_and_return(self, target: str, query_type: str, data: dict, user, rate_limit=None):
+    def _save_and_return(self, target: str, query_type: str, data: dict, user, rate_limit=None, site_user_id=None):
         lookup_record = None
         try:
             lookup_record = LookupHistory(
                 user_id=user.id,
+                site_user_id=site_user_id,
                 ip_address=target,
                 result=json.dumps(data),
             )
@@ -173,9 +174,8 @@ class BlacklistService:
         ('dbl.spamhaus.org', 'Spamhaus DBL'),
         ('multi.surbl.org', 'SURBL'),
     ]
-    # NOTE: This URL should be pinned to a specific commit hash for production use.
-    # To update: visit the gist, copy a revision SHA from the revision history,
-    # then replace /raw/ with /raw/<commit-sha>/ in the URL below.
+    # NOTE: Pin this URL to a specific commit SHA for production reproducibility.
+    # Visit the gist revision history, copy a SHA, and replace /raw/ with /raw/<SHA>/.
     CLICKFIX_URL = (
         'https://gist.githubusercontent.com/cdup07/'
         '9f563dfb78a06fad5db794f33ba93a3f/raw/clickfix_domains.txt'
@@ -186,34 +186,62 @@ class BlacklistService:
     _clickfix_ts = 0.0
     _clickfix_ttl = 3600.0  # refresh every hour
     _clickfix_lock = threading.Lock()
+    _clickfix_last_error = None
+    _clickfix_retries = 2  # total attempts per refresh
 
     def _get_clickfix_domains(self):
-        """Return the cached ClickFix set, refreshing if stale."""
+        """Return the cached ClickFix set, refreshing if stale. Retries on failure."""
         with self._clickfix_lock:
             if (
                 BlacklistService._clickfix_cache is not None
                 and (time.time() - BlacklistService._clickfix_ts) < self._clickfix_ttl
             ):
                 return BlacklistService._clickfix_cache
-            try:
-                resp = requests.get(self.CLICKFIX_URL, timeout=10)
-                resp.raise_for_status()
-                if len(resp.content) > self._CLICKFIX_MAX_BYTES:
-                    raise ValueError(f"ClickFix response too large ({len(resp.content)} bytes)")
-                domains = {
-                    line.strip().lower()
-                    for line in resp.text.splitlines()
-                    if line.strip() and not line.startswith("#")
-                }
-                if len(domains) > self._CLICKFIX_MAX_ENTRIES:
-                    raise ValueError(f"ClickFix list suspiciously large ({len(domains)} entries)")
-                BlacklistService._clickfix_cache = domains
-                BlacklistService._clickfix_ts = time.time()
-                logger.info(f"ClickFix list refreshed: {len(domains)} entries")
-                return domains
-            except Exception as exc:
-                logger.warning(f"Failed to fetch ClickFix list: {exc}")
-                return BlacklistService._clickfix_cache or set()
+
+            last_exc = None
+            for attempt in range(self._clickfix_retries):
+                try:
+                    resp = requests.get(self.CLICKFIX_URL, timeout=10)
+                    resp.raise_for_status()
+                    if len(resp.content) > self._CLICKFIX_MAX_BYTES:
+                        raise ValueError(f"ClickFix response too large ({len(resp.content)} bytes)")
+                    domains = {
+                        line.strip().lower()
+                        for line in resp.text.splitlines()
+                        if line.strip() and not line.startswith("#")
+                    }
+                    if len(domains) > self._CLICKFIX_MAX_ENTRIES:
+                        raise ValueError(f"ClickFix list suspiciously large ({len(domains)} entries)")
+                    BlacklistService._clickfix_cache = domains
+                    BlacklistService._clickfix_ts = time.time()
+                    BlacklistService._clickfix_last_error = None
+                    logger.info(f"ClickFix list refreshed: {len(domains)} entries")
+                    return domains
+                except Exception as exc:
+                    last_exc = exc
+                    if attempt < self._clickfix_retries - 1:
+                        time.sleep(1)
+
+            BlacklistService._clickfix_last_error = str(last_exc)
+            logger.warning(f"Failed to fetch ClickFix list after {self._clickfix_retries} attempts: {last_exc}")
+            return BlacklistService._clickfix_cache or set()
+
+    @classmethod
+    def feed_status(cls):
+        """Return metadata about the threat feed cache."""
+        with cls._clickfix_lock:
+            cache = cls._clickfix_cache
+            ts = cls._clickfix_ts
+            return {
+                'clickfix': {
+                    'cached': cache is not None,
+                    'entries': len(cache) if cache else 0,
+                    'last_refresh': datetime.utcfromtimestamp(ts).isoformat() if ts else None,
+                    'age_seconds': round(time.time() - ts, 1) if ts else None,
+                    'stale': (time.time() - ts) > cls._clickfix_ttl if ts else True,
+                    'last_error': cls._clickfix_last_error,
+                },
+            }
 
     def _check_dnsbl_ip(self, ip: str, bl_host: str) -> bool:
         try:

@@ -210,11 +210,17 @@
   <div class="settings-card">
     <div class="top-nav">
       <a href="/" class="nav-back">← Back to Dashboard</a>
-      <a href="/logout" class="nav-logout">Logout</a>
+      <div style="display:flex;gap:10px;">
+        <a href="/dashboard" class="nav-back" style="border:1px solid var(--line);padding:6px 14px;border-radius:8px;">📊 Dashboard</a>
+        {% if session.get('site_role') == 'admin' %}
+        <a href="/admin" class="nav-back" style="border:1px solid var(--line);padding:6px 14px;border-radius:8px;">👥 Users</a>
+        {% endif %}
+        <a href="/logout" class="nav-logout">Logout</a>
+      </div>
     </div>
 
     <h1>⚙ Settings</h1>
-    <p class="subtitle">Manage your login credentials.</p>
+    <p class="subtitle">Manage your account{% if session.get('site_role') == 'admin' %} &amp; server configuration{% endif %}.</p>
 
     {% with messages = get_flashed_messages(with_categories=true) %}
       {% if messages %}
@@ -249,6 +255,8 @@
       </div>
 
       <hr class="divider" />
+
+      {% if session.get('site_role') == 'admin' %}
       <p class="section-title">Internal API Key (Browser → Server)</p>
 
       <div class="form-group">
@@ -289,6 +297,7 @@
                autocomplete="new-password" />
         <p class="hint">Get a key at <a href="https://whoisfreaks.com" target="_blank" rel="noopener" style="color:var(--accent)">whoisfreaks.com</a>. Minimum 8 characters.</p>
       </div>
+      {% endif %}
 
       <button type="submit" class="btn-save">Save Changes</button>
     </form>
@@ -298,7 +307,7 @@
 
     <p class="hint" style="margin-bottom:16px;">
       A backup is created automatically every 24 hours and stored in <code style="color:var(--accent)">/data/backups/</code> inside the container.
-      Up to 30 days of backups are kept.
+      Up to 14 days of backups are kept.
     </p>
 
     <!-- Saved backups list -->

@@ -418,6 +418,10 @@
         <span id="rateLimitBadge" class="nav-user" style="display:none;font-size:0.8rem;">⚡ <span id="rateLimitVal">—</span></span>
         <span class="nav-user">👤 {{ session.get('site_username', 'User') }}</span>
         <button id="themeBtn" class="nav-btn" style="padding:8px 14px;font-size:1.1rem;line-height:1;">🌙</button>
+        <a href="/dashboard" class="nav-btn">📊 Dashboard</a>
+        {% if session.get('site_role') == 'admin' %}
+        <a href="/admin" class="nav-btn">👥 Users</a>
+        {% endif %}
         <a href="/settings" class="nav-btn">⚙ Settings</a>
         <a href="/logout" class="nav-btn logout">Logout</a>
       </div>

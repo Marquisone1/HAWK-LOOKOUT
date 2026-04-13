@@ -1,7 +1,22 @@
-# 🦅 HAWK LOOKOUT
+# 🦅 HAWK LOOKOUT v1.1
 
 **Minimal WHOIS reconnaissance tool for IPs and domains.**  
 Self-hosted, Docker-ready, login-protected, with a REST API and a clean dark/light web UI.
+
+> **⚠️ This is a fun vibe-coded side project — not enterprise software.**  
+> Built for learning, tinkering, and home-lab threat hunting. No SLA, no warranty,
+> no billion-dollar compliance certifications. Ship fast, break nothing important. 🚀
+
+---
+
+## What's New in v1.1
+
+- **Multi-User Support** — Admin and Analyst roles. Admins can create/delete users and manage API keys. Analysts get their own scoped lookup history.
+- **Interactive Dashboard** — Visual analytics with lookup trends (bar chart), IP vs domain breakdown (donut), top targets, and threat feed health status.
+- **Improved ClickFix Feed** — Retry logic with exponential backoff, feed health metadata, and a live status indicator on the dashboard.
+- **14-Day Backup Retention** — Automatic daily backups now prune after 14 days (previously 30).
+- **Admin Panel** — Full user CRUD at `/admin` — create analysts, toggle roles, delete accounts.
+- **Per-User History** — Analysts only see their own lookups; admins see everything.
 
 ---
 
@@ -10,6 +25,8 @@ Self-hosted, Docker-ready, login-protected, with a REST API and a clean dark/lig
 - **WHOIS Lookups** — IP addresses and domain names via the WhoisFreak API
 - **Blacklist Checks** — Spamhaus ZEN/DBL, SpamCop, SORBS, SURBL, and ClickFix threat feed
 - **Lookup History** — Every query stored per-user; accessible from the UI or API
+- **Multi-User** — Admin + Analyst roles with scoped access
+- **Dashboard & Analytics** — Lookup trends, type breakdown, top targets, feed health
 - **Web UI** — Login-protected dashboard with dark/light theme
 - **REST API** — API-key authenticated; all endpoints documented below
 - **Rate Limiting** — 30 req/min on the API, 10 req/min on login and settings

@@ -108,6 +108,22 @@ def web_login_required(f):
     return decorated
 
 
+def require_admin(f):
+    """Require admin role via web session."""
+
+    @wraps(f)
+    def decorated(*args, **kwargs):
+        if "site_user_id" not in session:
+            return redirect(url_for("whois.login"))
+        if session.get("site_role") != "admin":
+            from flask import flash
+            flash("Admin access required.", "error")
+            return redirect(url_for("whois.index"))
+        return f(*args, **kwargs)
+
+    return decorated
+
+
 # ─────────────────────────────────────────────────────────────────────────────
 # Password strength validation
 # ─────────────────────────────────────────────────────────────────────────────

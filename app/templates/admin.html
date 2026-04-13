@@ -1,0 +1,218 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>HAWK LOOKOUT — Admin</title>
+  <style>
+    :root {
+      --bg: #0a0f1a;
+      --panel: #121a2a;
+      --line: #243149;
+      --text: #e6eefc;
+      --muted: #9aa8c3;
+      --accent: #4cc9f0;
+      --ok: #80ed99;
+      --warn: #ffb703;
+      --danger: #ff4d6d;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+      background: radial-gradient(circle at top right, #18263d 0%, var(--bg) 45%);
+      color: var(--text);
+      min-height: 100vh;
+      display: grid;
+      place-items: center;
+      padding: 16px;
+    }
+
+    .app {
+      width: 100%;
+      max-width: 780px;
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 16px;
+      padding: 32px 40px 40px;
+    }
+
+    .top-nav {
+      display: flex; align-items: center; justify-content: space-between;
+      margin-bottom: 28px; padding-bottom: 20px; border-bottom: 1px solid var(--line);
+    }
+
+    .nav-back {
+      text-decoration: none; color: var(--muted); font-size: 0.9rem;
+      display: flex; align-items: center; gap: 6px; transition: color 0.15s;
+    }
+    .nav-back:hover { color: var(--accent); }
+
+    .nav-links { display: flex; gap: 10px; }
+    .nav-btn {
+      text-decoration: none; color: var(--text); border: 1px solid var(--line);
+      border-radius: 10px; padding: 8px 16px; font-size: 0.88rem; font-weight: 600;
+      transition: border-color 0.15s, color 0.15s;
+    }
+    .nav-btn:hover { border-color: var(--accent); color: var(--accent); }
+    .nav-btn.logout { color: #ff9b9b; border-color: #3a1a1a; }
+    .nav-btn.logout:hover { border-color: #ff9b9b; }
+
+    h1 { margin: 0 0 4px; font-size: 1.6rem; letter-spacing: 0.06em; color: var(--accent); }
+    .subtitle { margin: 0 0 28px; color: var(--muted); font-size: 0.92rem; }
+
+    .section-title {
+      font-size: 0.76rem; text-transform: uppercase; letter-spacing: 0.1em;
+      color: var(--muted); margin: 0 0 16px; padding-bottom: 8px;
+      border-bottom: 1px solid var(--line);
+    }
+
+    .alert { padding: 11px 14px; border-radius: 10px; font-size: 0.9rem; margin-bottom: 20px; }
+    .alert.success { background: #0d251a; border: 1px solid #1a5c37; color: var(--ok); }
+    .alert.error { background: #231417; border: 1px solid #6d2a2a; color: #ff9b9b; }
+
+    table { width: 100%; border-collapse: collapse; font-size: 0.88rem; margin-bottom: 28px; }
+    th, td { text-align: left; padding: 10px 12px; border-bottom: 1px solid var(--line); }
+    th { color: var(--muted); font-size: 0.74rem; text-transform: uppercase; letter-spacing: 0.08em; }
+
+    .badge {
+      display: inline-block; padding: 3px 10px; border-radius: 999px;
+      font-size: 0.72rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em;
+    }
+    .badge.admin { background: rgba(76,201,240,0.15); color: var(--accent); border: 1px solid rgba(76,201,240,0.3); }
+    .badge.analyst { background: rgba(128,237,153,0.1); color: var(--ok); border: 1px solid rgba(128,237,153,0.2); }
+
+    .form-group { margin-bottom: 16px; }
+    label {
+      display: block; color: var(--muted); font-size: 0.76rem;
+      text-transform: uppercase; letter-spacing: 0.1em; margin-bottom: 6px;
+    }
+    input[type="text"], input[type="password"], select {
+      width: 100%; border: 1px solid var(--line); border-radius: 10px;
+      background: #0d1422; color: var(--text); padding: 12px 16px; font-size: 0.95rem;
+      outline: none; transition: border-color 0.15s;
+    }
+    input:focus, select:focus { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(76,201,240,0.12); }
+    select { cursor: pointer; }
+
+    .btn {
+      border: none; border-radius: 10px; padding: 10px 18px;
+      font-size: 0.88rem; font-weight: 700; cursor: pointer;
+      letter-spacing: 0.04em; transition: opacity 0.15s;
+    }
+    .btn:hover { opacity: 0.85; }
+    .btn-create { background: var(--accent); color: #05243a; width: 100%; padding: 13px; font-size: 1rem; }
+    .btn-toggle { background: #1a3a5a; color: var(--accent); font-size: 0.78rem; padding: 6px 12px; }
+    .btn-delete { background: #3a1a1a; color: #ff9b9b; font-size: 0.78rem; padding: 6px 12px; }
+
+    .inline-form { display: inline; }
+
+    .create-card {
+      background: #0d1422; border: 1px solid var(--line); border-radius: 12px;
+      padding: 24px; margin-top: 8px;
+    }
+
+    .row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+
+    .divider { border: none; border-top: 1px solid var(--line); margin: 28px 0; }
+
+    .hint { margin-top: 6px; color: var(--muted); font-size: 0.78rem; }
+  </style>
+</head>
+<body>
+  <main class="app">
+    <nav class="top-nav">
+      <a href="/" class="nav-back">← Back to Lookups</a>
+      <div class="nav-links">
+        <a href="/dashboard" class="nav-btn">📊 Dashboard</a>
+        <a href="/settings" class="nav-btn">⚙ Settings</a>
+        <a href="/logout" class="nav-btn logout">Logout</a>
+      </div>
+    </nav>
+
+    <h1>👥 User Management</h1>
+    <p class="subtitle">Create and manage analyst accounts.</p>
+
+    {% with messages = get_flashed_messages(with_categories=true) %}
+      {% if messages %}
+        {% for category, message in messages %}
+          <div class="alert {{ category }}">{{ message }}</div>
+        {% endfor %}
+      {% endif %}
+    {% endwith %}
+
+    <p class="section-title">Current Users</p>
+
+    <table>
+      <thead>
+        <tr>
+          <th>Username</th>
+          <th>Role</th>
+          <th>Created</th>
+          <th style="text-align:right;">Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for u in users %}
+        <tr>
+          <td>{{ u.username }}{% if u.id == session.get('site_user_id') %} <span style="color:var(--muted);font-size:0.78rem;">(you)</span>{% endif %}</td>
+          <td><span class="badge {{ u.role }}">{{ u.role }}</span></td>
+          <td style="color:var(--muted);font-size:0.82rem;">{{ u.created_at.strftime('%Y-%m-%d %H:%M') }}</td>
+          <td style="text-align:right;">
+            {% if u.id != session.get('site_user_id') %}
+            <form method="POST" action="/admin/toggle-role/{{ u.id }}" class="inline-form" style="margin-right:6px;">
+              <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
+              <button type="submit" class="btn btn-toggle" title="Toggle role">
+                {% if u.role == 'admin' %}↓ Analyst{% else %}↑ Admin{% endif %}
+              </button>
+            </form>
+            <form method="POST" action="/admin/delete/{{ u.id }}" class="inline-form"
+                  onsubmit="return confirm('Delete user \'{{ u.username }}\'? This cannot be undone.')">
+              <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
+              <button type="submit" class="btn btn-delete">Delete</button>
+            </form>
+            {% else %}
+            <span style="color:var(--muted);font-size:0.78rem;">—</span>
+            {% endif %}
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+
+    <hr class="divider" />
+    <p class="section-title">Create New User</p>
+
+    <div class="create-card">
+      <form method="POST" action="/admin/create" autocomplete="off">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
+        <div class="row">
+          <div class="form-group">
+            <label for="new_username">Username</label>
+            <input type="text" id="new_username" name="username" required autocomplete="off" />
+          </div>
+          <div class="form-group">
+            <label for="role">Role</label>
+            <select id="role" name="role">
+              <option value="analyst" selected>Analyst</option>
+              <option value="admin">Admin</option>
+            </select>
+          </div>
+        </div>
+        <div class="form-group">
+          <label for="new_password">Password</label>
+          <input type="password" id="new_password" name="password" required autocomplete="new-password" />
+          <p class="hint">Min 12 characters, must include upper + lower + digit + special char.</p>
+        </div>
+        <div class="form-group">
+          <label for="new_confirm">Confirm Password</label>
+          <input type="password" id="new_confirm" name="confirm_password" required autocomplete="new-password" />
+        </div>
+        <button type="submit" class="btn btn-create">Create User</button>
+      </form>
+    </div>
+  </main>
+</body>
+</html>

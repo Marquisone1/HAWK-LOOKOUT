@@ -16,7 +16,7 @@ from flask import (
     send_file,
 )
 
-from .auth import web_login_required, _is_rate_limited, validate_password_strength
+from .auth import web_login_required, require_admin, _is_rate_limited, validate_password_strength
 from .models import SiteUser, User, LookupHistory, db
 from .services import WhoisFreakService, BlacklistService
 
@@ -59,7 +59,7 @@ def web_lookup():
         return jsonify({"error": "Bad Request", "message": "Missing required field: target"}), 400
     if not isinstance(target, str):
         return jsonify({"error": "Bad Request", "message": "Target must be a string"}), 400
-    result, status_code = _web_lookup_service.lookup(target, api_user)
+    result, status_code = _web_lookup_service.lookup(target, api_user, site_user_id=session.get('site_user_id'))
     logger.info(f"Web lookup by session user {session.get('site_user_id')}: {target}")
     return jsonify(result), status_code
 
@@ -90,14 +90,17 @@ def web_history():
     offset = request.args.get("offset", default=0, type=int)
     limit = max(1, min(limit, 500))
     offset = max(0, offset)
+    base_q = LookupHistory.query.filter_by(user_id=api_user.id)
+    if session.get("site_role") != "admin":
+        base_q = base_q.filter_by(site_user_id=session.get("site_user_id"))
     lookups = (
-        LookupHistory.query.filter_by(user_id=api_user.id)
+        base_q
         .order_by(LookupHistory.created_at.desc())
         .offset(offset)
         .limit(limit)
         .all()
     )
-    total_count = LookupHistory.query.filter_by(user_id=api_user.id).count()
+    total_count = base_q.count()
     history_list = [
         {
             "id": entry.id,
@@ -116,7 +119,10 @@ def web_delete_history(entry_id):
     api_user = User.query.first()
     if not api_user:
         return jsonify({"error": "Unauthorized", "message": "No API user configured"}), 401
-    entry = LookupHistory.query.filter_by(id=entry_id, user_id=api_user.id).first()
+    q = LookupHistory.query.filter_by(id=entry_id, user_id=api_user.id)
+    if session.get("site_role") != "admin":
+        q = q.filter_by(site_user_id=session.get("site_user_id"))
+    entry = q.first()
     if not entry:
         return jsonify({"error": "Not found"}), 404
     db.session.delete(entry)
@@ -131,7 +137,10 @@ def web_clear_history():
     api_user = User.query.first()
     if not api_user:
         return jsonify({"error": "Unauthorized", "message": "No API user configured"}), 401
-    deleted = LookupHistory.query.filter_by(user_id=api_user.id).delete()
+    q = LookupHistory.query.filter_by(user_id=api_user.id)
+    if session.get("site_role") != "admin":
+        q = q.filter_by(site_user_id=session.get("site_user_id"))
+    deleted = q.delete()
     db.session.commit()
     logger.info(f"Web history cleared ({deleted} entries) by session user {session.get('site_user_id')}")
     return jsonify({"cleared": deleted}), 200
@@ -167,7 +176,8 @@ def login():
             session.permanent = True
             session["site_user_id"] = user.id
             session["site_username"] = user.username
-            logger.info(f"Successful login: user={username} ip={request.remote_addr}")
+            session["site_role"] = user.role
+            logger.info(f"Successful login: user={username} role={user.role} ip={request.remote_addr}")
             return redirect(url_for("whois.index"))
 
         # Intentionally vague to avoid username enumeration
@@ -235,10 +245,11 @@ def settings():
             if new_password:
                 user.set_password(new_password)
                 logger.warning(f"Password changed for user id={user.id} ip={request.remote_addr}")
-            if new_api_key and api_user and new_api_key != api_user.api_key:
+            is_admin = session.get("site_role") == "admin"
+            if is_admin and new_api_key and api_user and new_api_key != api_user.api_key:
                 api_user.api_key = new_api_key
                 logger.warning(f"API key changed by user id={user.id} ip={request.remote_addr}")
-            if new_wf_key and api_user:
+            if is_admin and new_wf_key and api_user:
                 api_user.whoisfreak_api_key = new_wf_key
                 logger.warning(f"WhoisFreak key changed by user id={user.id} ip={request.remote_addr}")
             db.session.commit()
@@ -405,3 +416,158 @@ def backup_list():
         return jsonify({"backups": files})
     except Exception as exc:
         return jsonify({"error": str(exc)}), 500
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Dashboard & Analytics
+# ─────────────────────────────────────────────────────────────────────────────
+
+
+@web_bp.route("/dashboard", methods=["GET"])
+@web_login_required
+def dashboard():
+    return render_template("dashboard.html")
+
+
+@web_bp.route("/web/analytics", methods=["GET"])
+@web_login_required
+def web_analytics():
+    from datetime import datetime as _dt, timedelta as _td
+    from ipaddress import ip_address as _ipa
+
+    api_user = User.query.first()
+    if not api_user:
+        return jsonify({"total": 0, "last_7d": 0, "last_30d": 0, "by_day": [], "top_targets": [], "type_breakdown": {"ip": 0, "domain": 0}}), 200
+
+    is_admin = session.get("site_role") == "admin"
+    base_q = LookupHistory.query.filter_by(user_id=api_user.id)
+    if not is_admin:
+        base_q = base_q.filter_by(site_user_id=session.get("site_user_id"))
+
+    total = base_q.count()
+    thirty_days_ago = _dt.utcnow() - _td(days=30)
+    seven_days_ago = _dt.utcnow() - _td(days=7)
+    recent = base_q.filter(LookupHistory.created_at >= thirty_days_ago).all()
+
+    by_day = {}
+    type_counts = {"ip": 0, "domain": 0}
+    target_counts = {}
+
+    for r in recent:
+        day = r.created_at.strftime("%Y-%m-%d")
+        by_day[day] = by_day.get(day, 0) + 1
+        target_counts[r.ip_address] = target_counts.get(r.ip_address, 0) + 1
+        try:
+            _ipa(r.ip_address)
+            type_counts["ip"] += 1
+        except ValueError:
+            type_counts["domain"] += 1
+
+    lookups_by_day = sorted(by_day.items())
+    top_targets = sorted(target_counts.items(), key=lambda x: x[1], reverse=True)[:10]
+    last_7d = sum(1 for r in recent if r.created_at >= seven_days_ago)
+
+    return jsonify({
+        "total": total,
+        "last_7d": last_7d,
+        "last_30d": len(recent),
+        "by_day": [{"date": d, "count": c} for d, c in lookups_by_day],
+        "top_targets": [{"target": t, "count": c} for t, c in top_targets],
+        "type_breakdown": type_counts,
+    })
+
+
+@web_bp.route("/web/feed-status", methods=["GET"])
+@web_login_required
+def web_feed_status():
+    status = BlacklistService.feed_status()
+    return jsonify(status)
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Admin — User Management
+# ─────────────────────────────────────────────────────────────────────────────
+
+
+@web_bp.route("/admin", methods=["GET"])
+@require_admin
+def admin_panel():
+    users = SiteUser.query.order_by(SiteUser.created_at.desc()).all()
+    return render_template("admin.html", users=users)
+
+
+@web_bp.route("/admin/create", methods=["POST"])
+@require_admin
+def admin_create_user():
+    username = request.form.get("username", "").strip()
+    password = request.form.get("password", "")
+    confirm = request.form.get("confirm_password", "")
+    role = request.form.get("role", "analyst").strip()
+
+    if role not in ("admin", "analyst"):
+        role = "analyst"
+
+    errors = []
+    if not username:
+        errors.append("Username cannot be empty.")
+    elif SiteUser.query.filter_by(username=username).first():
+        errors.append("Username already taken.")
+
+    if not password:
+        errors.append("Password is required.")
+    elif password != confirm:
+        errors.append("Passwords do not match.")
+    else:
+        errors.extend(validate_password_strength(password))
+
+    if errors:
+        for e in errors:
+            flash(e, "error")
+    else:
+        new_user = SiteUser(username=username, role=role)
+        new_user.set_password(password)
+        db.session.add(new_user)
+        db.session.commit()
+        flash(f"User '{username}' created as {role}.", "success")
+        logger.info(f"Admin {session.get('site_username')} created user '{username}' (role={role})")
+
+    return redirect(url_for("whois.admin_panel"))
+
+
+@web_bp.route("/admin/delete/<int:user_id>", methods=["POST"])
+@require_admin
+def admin_delete_user(user_id):
+    if user_id == session.get("site_user_id"):
+        flash("You cannot delete your own account.", "error")
+        return redirect(url_for("whois.admin_panel"))
+
+    user = SiteUser.query.get(user_id)
+    if not user:
+        flash("User not found.", "error")
+    else:
+        username = user.username
+        db.session.delete(user)
+        db.session.commit()
+        flash(f"User '{username}' deleted.", "success")
+        logger.warning(f"Admin {session.get('site_username')} deleted user '{username}' id={user_id}")
+
+    return redirect(url_for("whois.admin_panel"))
+
+
+@web_bp.route("/admin/toggle-role/<int:user_id>", methods=["POST"])
+@require_admin
+def admin_toggle_role(user_id):
+    if user_id == session.get("site_user_id"):
+        flash("You cannot change your own role.", "error")
+        return redirect(url_for("whois.admin_panel"))
+
+    user = SiteUser.query.get(user_id)
+    if not user:
+        flash("User not found.", "error")
+    else:
+        user.role = "analyst" if user.role == "admin" else "admin"
+        db.session.commit()
+        flash(f"User '{user.username}' is now {user.role}.", "success")
+        logger.info(f"Admin {session.get('site_username')} changed role of '{user.username}' to {user.role}")
+
+    return redirect(url_for("whois.admin_panel"))

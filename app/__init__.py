@@ -10,7 +10,7 @@ from datetime import datetime
 
 from sqlalchemy.exc import IntegrityError
 
-from flask import Flask
+from flask import Flask, session
 from flask_wtf.csrf import CSRFProtect
 from flask_talisman import Talisman
 from werkzeug.middleware.proxy_fix import ProxyFix
@@ -85,7 +85,15 @@ def create_app():
 
     with app.app_context():
         db.create_all()
+        _migrate_db()
         _bootstrap_db(app)
+
+    @app.before_request
+    def _ensure_session_role():
+        if 'site_user_id' in session and 'site_role' not in session:
+            user = SiteUser.query.get(session['site_user_id'])
+            if user:
+                session['site_role'] = user.role
 
     _start_daily_backup(app)
 
@@ -98,9 +106,24 @@ def create_app():
 
 BACKUP_DIR = "/data/backups"
 BACKUP_DB_SOURCE = "/data/database.db"
-BACKUP_KEEP_DAYS = 30
+BACKUP_KEEP_DAYS = 14
 _DAILY_BACKUP_INTERVAL = 86400  # seconds
 
+def _migrate_db():
+    """Add columns introduced in v2 to existing tables."""
+    from sqlalchemy import text
+    with db.engine.connect() as conn:
+        cols = {row[1] for row in conn.execute(text("PRAGMA table_info(site_users)"))}
+        if 'role' not in cols:
+            conn.execute(text("ALTER TABLE site_users ADD COLUMN role VARCHAR(20) NOT NULL DEFAULT 'admin'"))
+            logger.info("Migration: added 'role' column to site_users (existing users set to admin)")
+
+        cols = {row[1] for row in conn.execute(text("PRAGMA table_info(lookup_history)"))}
+        if 'site_user_id' not in cols:
+            conn.execute(text("ALTER TABLE lookup_history ADD COLUMN site_user_id INTEGER"))
+            logger.info("Migration: added 'site_user_id' column to lookup_history")
+
+        conn.commit()
 
 def run_backup() -> str:
     """
@@ -161,7 +184,7 @@ def _bootstrap_db(app):
         username = "admin"
         password = "".join(_secrets.choice(alphabet) for _ in range(16))
 
-        admin = SiteUser(username=username)
+        admin = SiteUser(username=username, role="admin")
         admin.set_password(password)
         db.session.add(admin)
         try:
