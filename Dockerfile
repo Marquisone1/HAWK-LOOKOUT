@@ -14,7 +14,10 @@ RUN pip install --no-cache-dir --upgrade pip \
 FROM python:3.11-slim
 
 # Non-root user — containers should never run as root
-RUN addgroup --system appgroup && adduser --system --ingroup appgroup appuser
+ARG APP_UID=1000
+ARG APP_GID=1000
+RUN groupadd --gid ${APP_GID} appgroup \
+ && useradd --uid ${APP_UID} --gid appgroup --create-home --shell /usr/sbin/nologin appuser
 
 WORKDIR /app
 
@@ -26,7 +29,7 @@ COPY app/ app/
 COPY wsgi.py .
 
 # Create the data directory and set ownership
-RUN mkdir -p /data && chown appuser:appgroup /data
+RUN mkdir -p /data && chown appuser:appgroup /data && chmod 770 /data
 
 USER appuser
 

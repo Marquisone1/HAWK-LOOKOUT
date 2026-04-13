@@ -66,6 +66,11 @@ class WhoisFreakService:
     # ── Public entry point ────────────────────────────────────────────────────
 
     def lookup(self, target: str, user, site_user_id=None):
+        # Check if user prefers fallback services
+        if user.prefer_fallback:
+            return self._lookup_fallback(target, user, site_user_id=site_user_id)
+        
+        # Default: use WhoisFreak API
         if self.is_ip(target):
             return self._lookup_ip(target, user, site_user_id=site_user_id)
         elif self.is_domain(target):
@@ -84,9 +89,10 @@ class WhoisFreakService:
     def _lookup_ip(self, target: str, user, site_user_id=None):
         logger.info(f"WhoisFreak IP lookup: {target}")
         try:
+            api_key = self._get_api_key()
             resp = requests.get(
                 self.ip_endpoint,
-                params={"apiKey": self._get_api_key(), "ip": target},
+                params={"apiKey": api_key, "ip": target},
                 timeout=self.timeout,
             )
             if resp.status_code == 401:
@@ -95,7 +101,7 @@ class WhoisFreakService:
                 logger.error(f"WhoisFreak IP error {resp.status_code}: {resp.text[:200]}")
                 return {"error": f"WhoisFreak API error (HTTP {resp.status_code})"}, 502
 
-            return self._save_and_return(target, "ip", resp.json(), user, self._extract_rate_limit(resp), site_user_id=site_user_id)
+            return self._save_and_return(target, "ip", resp.json(), user, self._extract_rate_limit(resp), site_user_id=site_user_id, source="WhoisFreak")
 
         except requests.exceptions.Timeout:
             return {"error": "Request timed out"}, 504
@@ -111,9 +117,10 @@ class WhoisFreakService:
         domain = re.sub(r"^www\.", "", target.lower())
         logger.info(f"WhoisFreak domain lookup: {domain}")
         try:
+            api_key = self._get_api_key()
             resp = requests.get(
                 self.domain_endpoint,
-                params={"apiKey": self._get_api_key(), "whois": "live", "domainName": domain},
+                params={"apiKey": api_key, "whois": "live", "domainName": domain},
                 timeout=self.timeout,
             )
             if resp.status_code == 401:
@@ -122,7 +129,7 @@ class WhoisFreakService:
                 logger.error(f"WhoisFreak domain error {resp.status_code}: {resp.text[:200]}")
                 return {"error": f"WhoisFreak API error (HTTP {resp.status_code})"}, 502
 
-            return self._save_and_return(domain, "domain", resp.json(), user, self._extract_rate_limit(resp), site_user_id=site_user_id)
+            return self._save_and_return(domain, "domain", resp.json(), user, self._extract_rate_limit(resp), site_user_id=site_user_id, source="WhoisFreak")
 
         except requests.exceptions.Timeout:
             return {"error": "Request timed out"}, 504
@@ -134,7 +141,7 @@ class WhoisFreakService:
 
     # ── Persist and return ────────────────────────────────────────────────────
 
-    def _save_and_return(self, target: str, query_type: str, data: dict, user, rate_limit=None, site_user_id=None):
+    def _save_and_return(self, target: str, query_type: str, data: dict, user, rate_limit=None, site_user_id=None, source=None):
         lookup_record = None
         try:
             lookup_record = LookupHistory(
@@ -142,10 +149,11 @@ class WhoisFreakService:
                 site_user_id=site_user_id,
                 ip_address=target,
                 result=json.dumps(data),
+                source=source,  # Track which service was used
             )
             db.session.add(lookup_record)
             db.session.commit()
-            logger.info(f"Saved {query_type} lookup for '{target}' (user {user.id})")
+            logger.info(f"Saved {query_type} lookup for '{target}' from {source} (user {user.id})")
         except Exception as db_err:
             logger.error(f"DB error saving lookup: {db_err}")
             db.session.rollback()
@@ -158,9 +166,327 @@ class WhoisFreakService:
                 "timestamp": datetime.utcnow().isoformat(),
                 "lookup_id": lookup_record.id if lookup_record else None,
                 "rate_limit": rate_limit,
+                "source": source,  # Include source in response
             },
             200,
         )
+
+    # ── Fallback Services (IP-API + DNS) ──────────────────────────────────────
+
+    def _lookup_fallback(self, target: str, user, site_user_id=None):
+        """Use free fallback services: IP-API for IPs, DNS for domains."""
+        logger.info(f"Fallback services lookup: {target}")
+        
+        if self.is_ip(target):
+            # Use IP-API for IP lookups
+            ip_api_service = IPAPIService()
+            data = ip_api_service.lookup(target)
+            query_type = "ip"
+        elif self.is_domain(target):
+            # Use DNS service for domain lookups
+            dns_service = DNSService()
+            data = dns_service.lookup(target)
+            query_type = "domain"
+        else:
+            return (
+                {
+                    "error": "Invalid target",
+                    "message": "Enter a valid IP address or domain name",
+                },
+                400,
+            )
+        
+        # Save and return with source tracking
+        if self.is_ip(target):
+            source = "IP-API"
+        else:
+            source = "DNS"
+        return self._save_and_return(target, query_type, data, user, rate_limit=None, site_user_id=site_user_id, source=source)
+
+
+class IPAPIService:
+    """IP-API.com — Free IP geolocation and threat intel (no key required, 45 req/min)."""
+    
+    API_URL = "http://ip-api.com/json/"
+    
+    def __init__(self):
+        self.timeout = 5
+    
+    def lookup(self, ip: str) -> dict:
+        """Get comprehensive IP geolocation, ISP, and threat intel from IP-API."""
+        try:
+            # Request all available fields from IP-API
+            resp = requests.get(
+                f"{self.API_URL}{ip}",
+                params={
+                    "fields": "status,continent,country,region,city,district,zip,lat,lon,timezone,offset,currency,isp,org,as,asname,mobile,proxy,hosting,vpn,tor,reverse,connection_type,connection_speed"
+                },
+                timeout=self.timeout
+            )
+            if resp.status_code == 200:
+                data = resp.json()
+                if data.get("status") == "success":
+                    return {
+                        # Location info
+                        "location": {
+                            "continent": data.get("continent"),
+                            "country": data.get("country"),
+                            "region": data.get("region"),
+                            "city": data.get("city"),
+                            "district": data.get("district"),
+                            "zip_code": data.get("zip"),
+                            "coordinates": {
+                                "latitude": data.get("lat"),
+                                "longitude": data.get("lon")
+                            },
+                            "timezone": data.get("timezone"),
+                            "timezone_offset": data.get("offset"),
+                        },
+                        # Network info
+                        "network": {
+                            "isp": data.get("isp"),
+                            "organization": data.get("org"),
+                            "asn": data.get("as"),
+                            "as_name": data.get("asname"),
+                            "connection_type": data.get("connection_type"),
+                            "connection_speed": data.get("connection_speed"),
+                        },
+                        # Financial/currency info
+                        "financial": {
+                            "currency": data.get("currency"),
+                        },
+                        # Threat detection
+                        "threat_analysis": {
+                            "is_mobile": data.get("mobile", False),
+                            "is_proxy": data.get("proxy", False),
+                            "is_vpn": data.get("vpn", False),
+                            "is_tor": data.get("tor", False),
+                            "is_hosting": data.get("hosting", False),
+                        },
+                        # Reverse DNS
+                        "reverse_dns": data.get("reverse"),
+                    }
+            return {"error": "IP lookup failed", "status": data.get("status") if resp.status_code == 200 else f"HTTP {resp.status_code}"}
+        except Exception as e:
+            logger.debug(f"IP-API lookup failed for {ip}: {e}")
+            return {"error": str(e)}
+
+
+class DNSService:
+    """DNS record lookups — MX, NS, SPF, TXT, A, AAAA, CNAME, CAA, SOA, TLSA records (completely free)."""
+    
+    def __init__(self):
+        try:
+            import dns.resolver
+            self.resolver = dns.resolver.Resolver()
+            self.resolver.timeout = 3
+            self.enabled = True
+        except ImportError:
+            logger.warning("dnspython not installed, DNS lookups disabled")
+            self.enabled = False
+    
+    def lookup(self, domain: str) -> dict:
+        """Get comprehensive DNS records for a domain."""
+        if not self.enabled:
+            return {"error": "dnspython not installed"}
+        
+        result = {}
+        
+        try:
+            import dns.resolver
+            resolver = dns.resolver.Resolver()
+            resolver.timeout = 3
+            
+            # Clean domain name
+            domain = domain.lower().replace('www.', '', 1)
+            
+            # A Records (IPv4)
+            try:
+                a_records = resolver.resolve(domain, 'A')
+                result['a_records'] = [str(record) for record in a_records]
+            except Exception:
+                pass
+            
+            # AAAA Records (IPv6)
+            try:
+                aaaa_records = resolver.resolve(domain, 'AAAA')
+                result['aaaa_records'] = [str(record) for record in aaaa_records]
+            except Exception:
+                pass
+            
+            # MX Records (Mail)
+            try:
+                mx_records = resolver.resolve(domain, 'MX')
+                result['mx_records'] = [
+                    {
+                        "priority": int(record.preference),
+                        "exchange": str(record.exchange).rstrip('.')
+                    }
+                    for record in sorted(mx_records, key=lambda x: x.preference)
+                ]
+            except Exception:
+                pass
+            
+            # NS Records (Nameservers)
+            try:
+                ns_records = resolver.resolve(domain, 'NS')
+                result['ns_records'] = [str(record).rstrip('.') for record in ns_records]
+            except Exception:
+                pass
+            
+            # CNAME Records
+            try:
+                cname_records = resolver.resolve(domain, 'CNAME')
+                result['cname_records'] = [str(record).rstrip('.') for record in cname_records]
+            except Exception:
+                pass
+            
+            # SOA Record (Start of Authority)
+            try:
+                soa_records = resolver.resolve(domain, 'SOA')
+                soa = soa_records[0]
+                result['soa_record'] = {
+                    "mname": str(soa.mname).rstrip('.'),
+                    "rname": str(soa.rname).rstrip('.'),
+                    "serial": int(soa.serial),
+                    "refresh": int(soa.refresh),
+                    "retry": int(soa.retry),
+                    "expire": int(soa.expire),
+                    "minimum": int(soa.minimum),
+                }
+            except Exception:
+                pass
+            
+            # TXT Records (All text records)
+            try:
+                txt_records = resolver.resolve(domain, 'TXT')
+                all_txt = []
+                for record in txt_records:
+                    txt_strings = [s.decode() if isinstance(s, bytes) else s for s in record.strings]
+                    all_txt.append(''.join(txt_strings))
+                result['txt_records'] = all_txt
+            except Exception:
+                pass
+            
+            # SPF Record
+            try:
+                txt_records = resolver.resolve(domain, 'TXT')
+                spf = [str(record) for record in txt_records if 'v=spf1' in str(record)]
+                if spf:
+                    result['spf_record'] = spf[0]
+            except Exception:
+                pass
+            
+            # DMARC Record
+            try:
+                dmarc_records = resolver.resolve(f"_dmarc.{domain}", 'TXT')
+                dmarc = [str(record) for record in dmarc_records if 'v=DMARC1' in str(record)]
+                if dmarc:
+                    result['dmarc_record'] = dmarc[0]
+            except Exception:
+                pass
+            
+            # CAA Records (Certificate Authority Authorization)
+            try:
+                caa_records = resolver.resolve(domain, 'CAA')
+                result['caa_records'] = [
+                    {
+                        "flags": int(record.flags),
+                        "tag": record.tag.decode() if isinstance(record.tag, bytes) else record.tag,
+                        "value": record.value.decode() if isinstance(record.value, bytes) else record.value
+                    }
+                    for record in caa_records
+                ]
+            except Exception:
+                pass
+            
+            # TLSA Records (TLS certificate info)
+            try:
+                tlsa_records = resolver.resolve(f"_443._tcp.{domain}", 'TLSA')
+                result['tlsa_records'] = [
+                    {
+                        "usage": int(record.usage),
+                        "selector": int(record.selector),
+                        "mtype": int(record.mtype),
+                        "cert_data": record.cert.hex()[:32] + "..."  # First 32 chars of hex
+                    }
+                    for record in tlsa_records
+                ]
+            except Exception:
+                pass
+            
+            # Try to get SSL/TLS certificate info
+            try:
+                ssl_info = self._get_ssl_info(domain)
+                if ssl_info:
+                    result['ssl_certificate'] = ssl_info
+            except Exception:
+                pass
+            
+            # Try to get HTTP headers
+            try:
+                http_info = self._get_http_headers(domain)
+                if http_info:
+                    result['http_headers'] = http_info
+            except Exception:
+                pass
+            
+            return result
+        
+        except Exception as e:
+            logger.debug(f"DNS lookup failed for {domain}: {e}")
+            return {"error": str(e)}
+    
+    @staticmethod
+    def _get_ssl_info(domain: str) -> dict:
+        """Get SSL/TLS certificate information."""
+        try:
+            import ssl
+            import socket
+            
+            context = ssl.create_default_context()
+            with socket.create_connection((domain, 443), timeout=3) as sock:
+                with context.wrap_socket(sock, server_hostname=domain) as ssock:
+                    cert = ssock.getpeercert()
+                    if cert:
+                        return {
+                            "subject": dict(x[0] for x in cert.get('subject', [])),
+                            "issuer": dict(x[0] for x in cert.get('issuer', [])),
+                            "version": cert.get('version'),
+                            "serial_number": hex(cert.get('serialNumber', 0)),
+                            "not_before": cert.get('notBefore'),
+                            "not_after": cert.get('notAfter'),
+                            "san": cert.get('subjectAltName', []),
+                        }
+        except Exception as e:
+            logger.debug(f"SSL info retrieval failed for {domain}: {e}")
+        return None
+    
+    @staticmethod
+    def _get_http_headers(domain: str) -> dict:
+        """Get HTTP headers and server info."""
+        try:
+            resp = requests.head(f"https://{domain}", timeout=3, allow_redirects=False)
+            headers = {}
+            
+            # Extract security and useful headers
+            interesting_headers = [
+                'server', 'x-powered-by', 'x-frame-options', 'x-content-type-options',
+                'strict-transport-security', 'content-security-policy', 'x-xss-protection',
+                'referrer-policy', 'permissions-policy', 'cache-control', 'etag'
+            ]
+            
+            for header in interesting_headers:
+                if header in resp.headers:
+                    headers[header] = resp.headers[header]
+            
+            return {
+                "status_code": resp.status_code,
+                "headers": headers
+            }
+        except Exception as e:
+            logger.debug(f"HTTP headers retrieval failed for {domain}: {e}")
+        return None
 
 
 class BlacklistService:

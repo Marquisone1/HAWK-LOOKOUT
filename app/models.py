@@ -17,6 +17,8 @@ class User(db.Model):
     whoisfreak_api_key = db.Column(db.String(255), nullable=True)
     # URLhaus (abuse.ch) Auth-Key — managed via Settings, never exposed to the browser
     urlhaus_auth_key = db.Column(db.String(255), nullable=True)
+    # Use free fallback services (IP-API, DNS) instead of WhoisFreak API
+    prefer_fallback = db.Column(db.Boolean, default=False, nullable=False)
     created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
     last_used = db.Column(db.DateTime, onupdate=datetime.utcnow)
 
@@ -42,6 +44,7 @@ class LookupHistory(db.Model):
     )
     ip_address = db.Column(db.String(253), nullable=False)  # also holds domain names
     result = db.Column(db.Text, nullable=False)
+    source = db.Column(db.String(50), nullable=True)  # Track which service: "WhoisFreak", "IP-API", "DNS"
     created_at = db.Column(
         db.DateTime, default=datetime.utcnow, nullable=False, index=True
     )

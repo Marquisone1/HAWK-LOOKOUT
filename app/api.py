@@ -73,6 +73,20 @@ def lookup(user):
             jsonify({"error": "Bad Request", "message": "Target must be a string"}),
             400,
         )
+    
+    # Enforce length limits to prevent DoS via regex exhaustion
+    if len(target) > 255:
+        return (
+            jsonify({"error": "Bad Request", "message": "Target exceeds maximum length (255 chars)"}),
+            400,
+        )
+    
+    # Only allow alphanumerics, dots, hyphens, and colons (IPv6)
+    if not all(c.isalnum() or c in '.-:' for c in target):
+        return (
+            jsonify({"error": "Bad Request", "message": "Target contains invalid characters"}),
+            400,
+        )
 
     result, status_code = lookup_service.lookup(target, user)
     return jsonify(_sanitize(result)), status_code

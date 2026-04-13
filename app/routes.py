@@ -584,3 +584,38 @@ def admin_toggle_role(user_id):
         logger.info(f"Admin {session.get('site_username')} changed role of '{user.username}' to {user.role}")
 
     return redirect(url_for("whois.admin_panel"))
+
+
+@web_bp.route("/api/settings", methods=["GET"])
+@require_admin
+def api_settings():
+    """Get current API settings."""
+    api_user = User.query.first()
+    if not api_user:
+        return jsonify({"error": "No API user configured"}), 404
+    
+    return jsonify({
+        "has_whoisfreak_key": bool(api_user.whoisfreak_api_key),
+        "prefer_fallback": api_user.prefer_fallback,
+    }), 200
+
+
+@web_bp.route("/admin/toggle-fallback", methods=["POST"])
+@require_admin
+def admin_toggle_fallback():
+    """Toggle prefer_fallback setting to switch between WhoisFreak API and free fallback services."""
+    api_user = User.query.first()
+    if not api_user:
+        return jsonify({"error": "No API user configured"}), 404
+    
+    api_user.prefer_fallback = not api_user.prefer_fallback
+    db.session.commit()
+    
+    mode = "fallback services (IP-API, DNS)" if api_user.prefer_fallback else "WhoisFreak API"
+    logger.info(f"Admin {session.get('site_username')} switched to {mode}")
+    
+    return jsonify({
+        "success": True,
+        "prefer_fallback": api_user.prefer_fallback,
+        "message": f"Switched to {mode}"
+    }), 200

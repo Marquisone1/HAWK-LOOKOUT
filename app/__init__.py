@@ -124,11 +124,24 @@ def _migrate_db():
         if 'site_user_id' not in cols:
             conn.execute(text("ALTER TABLE lookup_history ADD COLUMN site_user_id INTEGER"))
             logger.info("Migration: added 'site_user_id' column to lookup_history")
+        
+        if 'source' not in cols:
+            conn.execute(text("ALTER TABLE lookup_history ADD COLUMN source VARCHAR(50)"))
+            logger.info("Migration: added 'source' column to lookup_history (tracks service used)")
 
         cols = {row[1] for row in conn.execute(text("PRAGMA table_info(users)"))}
         if 'urlhaus_auth_key' not in cols:
             conn.execute(text("ALTER TABLE users ADD COLUMN urlhaus_auth_key VARCHAR(255)"))
             logger.info("Migration: added 'urlhaus_auth_key' column to users")
+        
+        if 'prefer_fallback' not in cols:
+            conn.execute(text("ALTER TABLE users ADD COLUMN prefer_fallback BOOLEAN NOT NULL DEFAULT 0"))
+            logger.info("Migration: added 'prefer_fallback' column to users (default: False)")
+        
+        # DEPRECATED: prefer_rdap column is no longer used (RDAP service removed)
+        # if 'prefer_rdap' not in cols:
+        #     conn.execute(text("ALTER TABLE users ADD COLUMN prefer_rdap BOOLEAN NOT NULL DEFAULT 0"))
+        #     logger.info("Migration: added 'prefer_rdap' column to users (default: False)")
 
         conn.commit()
 

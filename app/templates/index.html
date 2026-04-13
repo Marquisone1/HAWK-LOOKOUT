@@ -4,39 +4,41 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <meta name="csrf-token" content="{{ csrf_token() }}" />
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="icon" type="image/svg+xml" href="{{ url_for('static', filename='favicon.svg') }}">
   <title>HAWK LOOKOUT</title>
   <style>
     :root {
-      --bg: #0a0f1a;
-      --panel: #121a2a;
-      --line: #243149;
-      --text: #e6eefc;
-      --muted: #9aa8c3;
-      --accent: #4cc9f0;
-      --ok: #80ed99;
-      --warn: #ffb703;
-      --danger: #ff4d6d;
+      --bg: #1E1E1E;
+      --panel: #2A2A2A;
+      --line: #3D3D3D;
+      --text: #E8E8E8;
+      --muted: #A0A0A0;
+      --accent: #5BA3B2;
+      --ok: #6DB87E;
+      --warn: #D4A574;
+      --danger: #B8707A;
     }
 
     /* ── Light mode ───────────────────────────────────────────────── */
     body.light {
-      background: radial-gradient(circle at top right, #d6e8f8 0%, #eef4fd 45%);
-      --bg: #eef4fd;
-      --panel: #fff;
-      --line: #c5d4e8;
-      --text: #1a2640;
-      --muted: #55698a;
-      --accent: #0077b6;
-      --ok: #1a7a3c;
-      --warn: #b07000;
-      --danger: #cc1a3c;
+      background: radial-gradient(circle at top right, #F5EBD9 0%, #FAF7F3 45%);
+      --bg: #FAF7F3;
+      --panel: #FFF8F0;
+      --line: #D4C5B0;
+      --text: #2C2416;
+      --muted: #7A6D5F;
+      --accent: #4A7F8C;
+      --ok: #6B9D7A;
+      --warn: #C9956B;
+      --danger: #A05060;
     }
-    body.light .app           { background: #fff; border-color: #c5d4e8; }
-    body.light input           { background: #e8f0fb; color: var(--text); }
-    body.light button          { background: #dce8f8; color: var(--text); }
-    body.light button.primary  { background: var(--accent); color: #fff; }
-    body.light .panel          { background: #f5f8fe; }
-    body.light .card           { background: #edf3fc; }
+    body.light .app           { background: #FFFBF5; border-color: #E8DDD0; }
+    body.light button.primary  { background: var(--accent); color: #FFFBF5; }
+    body.light .panel          { background: #F5F1E8; }
+    body.light .card           { background: #F8F4ED; }
     body.light pre             { background: #e8f0fb; color: #334566; }
     body.light .loader-track   { background: #dce8f8; }
     body.light .chip           { background: rgba(0,0,0,0.04); }
@@ -45,13 +47,14 @@
 
     body {
       margin: 0;
-      font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
-      background: radial-gradient(circle at top right, #18263d 0%, var(--bg) 45%);
+      font-family: "Roboto", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background: radial-gradient(circle at top right, #0F0F0F 0%, var(--bg) 45%);
       color: var(--text);
       min-height: 100vh;
       display: grid;
       place-items: center;
       padding: 16px;
+      line-height: 1.5;
     }
 
     .app {
@@ -116,12 +119,12 @@
     }
 
     .nav-btn.logout {
-      color: #ff9b9b;
-      border-color: #3a1a1a;
+      color: #A05060;
+      border-color: #E8D4D8;
     }
 
     .nav-btn.logout:hover {
-      border-color: #ff9b9b;
+      border-color: #A05060;
     }
 
     h1 {
@@ -147,7 +150,7 @@
       width: 100%;
       border: 1px solid var(--line);
       border-radius: 10px;
-      background: #0d1422;
+      background: var(--panel);
       color: var(--text);
       padding: 14px 18px;
       font-size: 1.05rem;
@@ -157,13 +160,13 @@
 
     input:focus {
       border-color: var(--accent);
-      box-shadow: 0 0 0 3px rgba(76,201,240,0.1);
+      box-shadow: 0 0 0 3px rgba(91, 163, 178, 0.15);
     }
 
     button {
       border: 1px solid var(--line);
       border-radius: 10px;
-      background: #0f1e34;
+      background: var(--panel);
       color: var(--text);
       padding: 0 22px;
       height: 50px;
@@ -175,7 +178,7 @@
 
     button.primary {
       background: var(--accent);
-      color: #05243a;
+      color: #FFF8F0;
       border-color: transparent;
       font-size: 1.05rem;
     }
@@ -206,14 +209,14 @@
       display: none;
     }
 
-    .status.error { color: #ff9b9b; border-color: #6d2a2a; background: #231417; }
+    .status.error { color: #E8A8B2; border-color: #3D2530; background: var(--panel); }
     .status.info { color: var(--accent); }
 
     .panel {
       margin-top: 14px;
       border: 1px solid var(--line);
       border-radius: 10px;
-      background: #0d1422;
+      background: var(--panel);
       padding: 12px;
       display: none;
     }
@@ -236,7 +239,7 @@
     .chip.ok     { color: var(--ok); }
     .chip.warn    { color: var(--warn); }
     .chip.danger  { color: var(--danger); border-color: #5a1a27; }
-    .chip.info-blue { color: #74c0fc; border-color: #1a3a5a; }
+    .chip.info-blue { color: #4A7F8C; border-color: #B8D4C8; }
 
     .cards {
       display: grid;
@@ -431,7 +434,7 @@
       <input id="target" placeholder="8.8.8.8 or example.com" />
       <button class="primary" id="scanBtn">Scan</button>
       <button id="historyBtn">History</button>
-      <button id="clearBtn" style="color:#ff9b9b; border-color:#3a1a1a;">Clear History</button>
+      <button id="clearBtn" style="color:#A05060; border-color:#E8D4D8;">Clear History</button>
     </div>
 
     <p class="note">Cyber Security points: IOC enrichment, ownership checks, registration age review, incident triage support.</p>
@@ -693,81 +696,206 @@
       `).join('');
     }
 
+    function renderExpandableCard(label, value, maxLength = 100) {
+      if (!value || typeof value !== 'string') return card(label, value || "Unknown");
+      
+      if (value.length > maxLength) {
+        const displayValue = value.substring(0, maxLength) + "...";
+        const uniqueId = `expand-${label.replace(/\s+/g, '-')}-${Math.random().toString(36).substr(2, 9)}`;
+        return `
+          <div class="card">
+            <div class="label">${esc(label)}</div>
+            <div class="value">
+              <span>${esc(displayValue)}</span>
+              <details style="margin-top: 8px;">
+                <summary style="cursor: pointer; color: var(--accent); font-weight: 500;">Show full record</summary>
+                <pre style="background: var(--panel); padding: 8px; border-radius: 4px; font-size: 12px; overflow-x: auto; margin-top: 8px;">${esc(value)}</pre>
+              </details>
+            </div>
+          </div>
+        `;
+      }
+      return card(label, value);
+    }
+
     function renderResult(payload) {
       const t = payload.type;
       const d = t === "domain" ? (payload.data || {}) : (payload.data?.ipWhois || payload.data || {});
+      const source = payload.source || "WhoisFreak";
 
       let cards = "";
       if (t === "domain") {
-        const reg = d.registry_data || {};
-        const registrar = d.domain_registrar || reg.domain_registrar || {};
-        const registrant = d.registrant_contact || reg.registrant_contact || {};
-        const status = Array.isArray(d.domain_status)
-          ? d.domain_status.join(", ")
-          : (Array.isArray(reg.domain_status) ? reg.domain_status.join(", ") : "Unknown");
-        const nameServers = Array.isArray(d.name_servers)
-          ? d.name_servers.join(", ")
-          : (Array.isArray(reg.name_servers) ? reg.name_servers.join(", ") : "Unknown");
+        // Check if this is a DNS fallback response
+        if (source === "DNS") {
+          cards += card("Domain", payload.target);
+          
+          // DNS Records
+          if (d.a_records?.length) cards += card("A Records", d.a_records.join(", "));
+          if (d.aaaa_records?.length) cards += card("AAAA Records", d.aaaa_records.join(", "));
+          if (d.mx_records?.length) {
+            const mxFormatted = d.mx_records.map(r => `${r.priority} ${r.exchange}`).join("; ");
+            cards += card("MX Records", mxFormatted);
+          }
+          if (d.ns_records?.length) cards += card("NS Records", d.ns_records.join(", "));
+          if (d.cname_records?.length) cards += card("CNAME Records", d.cname_records.join(", "));
+          if (d.txt_records?.length) cards += renderExpandableCard("TXT Records", d.txt_records.join("; "), 100);
+          if (d.spf_record) cards += renderExpandableCard("SPF Record", d.spf_record, 100);
+          if (d.dmarc_record) cards += renderExpandableCard("DMARC Record", d.dmarc_record, 100);
+          if (d.caa_records?.length) cards += renderExpandableCard("CAA Records", d.caa_records.join("; "), 100);
+          if (d.tlsa_records?.length) cards += renderExpandableCard("TLSA Records", d.tlsa_records.join("; "), 100);
+          
+          // SOA Record
+          if (d.soa_record) {
+            const soa = d.soa_record;
+            cards += card("SOA Primary NS", soa.nameserver || "Unknown");
+            cards += card("SOA Email", soa.email || "Unknown");
+            cards += card("SOA Serial", soa.serial || "Unknown");
+            cards += card("SOA Refresh", soa.refresh || "Unknown");
+          }
+          
+          // SSL Certificate
+          if (d.ssl_certificate) {
+            const cert = d.ssl_certificate;
+            cards += card("SSL Subject", cert.subject || "Unknown");
+            cards += card("SSL Issuer", cert.issuer || "Unknown");
+            cards += card("SSL Valid From", cert.valid_from || "Unknown");
+            cards += card("SSL Valid Until", cert.valid_until || "Unknown");
+            if (cert.san?.length) cards += card("SSL SAN", cert.san.join(", "));
+          }
+          
+          // HTTP Headers
+          if (d.http_headers) {
+            const headers = d.http_headers;
+            if (headers.status_code) cards += card("HTTP Status", headers.status_code);
+            if (headers.headers?.["Server"]) cards += card("Server Header", headers.headers["Server"]);
+            if (headers.headers?.["Content-Type"]) cards += card("Content-Type", headers.headers["Content-Type"]);
+          }
+        } else {
+          // WhoisFreak domain response
+          const reg = d.registry_data || {};
+          const registrar = d.domain_registrar || reg.domain_registrar || {};
+          const registrant = d.registrant_contact || reg.registrant_contact || {};
+          const status = Array.isArray(d.domain_status)
+            ? d.domain_status.join(", ")
+            : (Array.isArray(reg.domain_status) ? reg.domain_status.join(", ") : "Unknown");
+          const nameServers = Array.isArray(d.name_servers)
+            ? d.name_servers.join(", ")
+            : (Array.isArray(reg.name_servers) ? reg.name_servers.join(", ") : "Unknown");
 
-        cards += card("Domain", firstValue(d.domain_name, reg.domain_name, d.domainName, payload.target));
-        cards += card("Domain Registered", firstValue(d.domain_registered, reg.domain_registered, d.status));
-        cards += card("Registrar", firstValue(registrar.registrar_name, d.registrarName));
-        cards += card("Registrar IANA ID", firstValue(registrar.iana_id, d.registrarIanaId, reg.registrarIanaId));
-        cards += card("Registrar Email", firstValue(registrar.email_address, d.registrarEmail));
-        cards += card("Registrar Phone", firstValue(registrar.phone_number, d.registrarPhone));
-        cards += card("Registrar Website", firstValue(registrar.website_url, d.registrarWebsite));
-        cards += card("Created", firstValue(d.create_date, reg.create_date, d.createdDate));
-        cards += card("Updated", firstValue(d.update_date, reg.update_date, d.updatedDate));
-        cards += card("Expires", firstValue(d.expiry_date, reg.expiry_date, d.expiresDate));
-        cards += card("Query Time", firstValue(d.query_time, reg.query_time));
-        cards += card("Registrant Company", firstValue(registrant.company, d.registrantOrganization, d.registrantName));
-        cards += card("Registrant Country", firstValue(registrant.country_name, registrant.country_code, d.registrantCountry));
-        cards += card("Registrant State", firstValue(registrant.state, d.registrantState));
-        cards += card("WHOIS Server", firstValue(d.whois_server, reg.whois_server, d.whoisServer));
-        cards += card("Domain Status", status);
-        cards += card("Name Servers", nameServers);
+          cards += card("Domain", firstValue(d.domain_name, reg.domain_name, d.domainName, payload.target));
+          cards += card("Domain Registered", firstValue(d.domain_registered, reg.domain_registered, d.status));
+          cards += card("Registrar", firstValue(registrar.registrar_name, d.registrarName));
+          cards += card("Registrar IANA ID", firstValue(registrar.iana_id, d.registrarIanaId, reg.registrarIanaId));
+          cards += card("Registrar Email", firstValue(registrar.email_address, d.registrarEmail));
+          cards += card("Registrar Phone", firstValue(registrar.phone_number, d.registrarPhone));
+          cards += card("Registrar Website", firstValue(registrar.website_url, d.registrarWebsite));
+          cards += card("Created", firstValue(d.create_date, reg.create_date, d.createdDate));
+          cards += card("Updated", firstValue(d.update_date, reg.update_date, d.updatedDate));
+          cards += card("Expires", firstValue(d.expiry_date, reg.expiry_date, d.expiresDate));
+          cards += card("Query Time", firstValue(d.query_time, reg.query_time));
+          cards += card("Registrant Company", firstValue(registrant.company, d.registrantOrganization, d.registrantName));
+          cards += card("Registrant Country", firstValue(registrant.country_name, registrant.country_code, d.registrantCountry));
+          cards += card("Registrant State", firstValue(registrant.state, d.registrantState));
+          cards += card("WHOIS Server", firstValue(d.whois_server, reg.whois_server, d.whoisServer));
+          cards += card("Domain Status", status);
+          cards += card("Name Servers", nameServers);
+        }
       } else {
-        // WhoisFreak IP response shape:
-        // d.ip_address, d.whois_server, d.query_time,
-        // d.organization: { name, handle, address, street, city, state, zip_code, country, date_created, date_updated }
-        // d.inet_nums: [{ start_ip, end_ip, cidr:[], net_name, ... }]
-        // d.abuse_contacts: [{ name, handle, email:[] }]
-        // d.technical_contacts: [{ name, handle, email:[] }]
-        const org      = d.organization || {};
-        const net      = Array.isArray(d.inet_nums) && d.inet_nums.length ? d.inet_nums[0] : {};
-        const abuse    = Array.isArray(d.abuse_contacts) && d.abuse_contacts.length ? d.abuse_contacts[0] : {};
-        const tech     = Array.isArray(d.technical_contacts) && d.technical_contacts.length ? d.technical_contacts[0] : {};
+        // IP lookup
+        if (source === "IP-API") {
+          // IP-API fallback response
+          const location = d.location || {};
+          const network = d.network || {};
+          const threat = d.threat_analysis || {};
+          const financial = d.financial || {};
+          const revDns = d.reverse_dns || {};
+          
+          cards += card("IP Address", payload.target);
+          
+          // Location
+          if (location.continent) cards += card("Continent", location.continent);
+          if (location.country) cards += card("Country", location.country);
+          if (location.region) cards += card("Region", location.region);
+          if (location.city) cards += card("City", location.city);
+          if (location.latitude || location.longitude) {
+            const coords = `${location.latitude}, ${location.longitude}`;
+            cards += card("Coordinates", coords);
+          }
+          if (location.timezone) cards += card("Timezone", location.timezone);
+          
+          // Network
+          if (network.isp) cards += card("ISP", network.isp);
+          if (network.org) cards += card("Organization", network.org);
+          if (network.asn) cards += card("ASN", network.asn);
+          if (network.connection_type) cards += card("Connection Type", network.connection_type);
+          
+          // Threat Analysis
+          if (threat.is_proxy !== undefined) cards += card("Proxy", threat.is_proxy ? "Yes" : "No");
+          if (threat.is_vpn !== undefined) cards += card("VPN", threat.is_vpn ? "Yes" : "No");
+          if (threat.is_tor !== undefined) cards += card("Tor", threat.is_tor ? "Yes" : "No");
+          if (threat.is_hosting !== undefined) cards += card("Hosting", threat.is_hosting ? "Yes" : "No");
+          
+          // Financial
+          if (financial.currency) cards += card("Currency", financial.currency);
+          
+          // Reverse DNS
+          if (revDns.hostname) cards += card("Reverse DNS Hostname", revDns.hostname);
+          if (revDns.ptr_record) cards += card("PTR Record", revDns.ptr_record);
+        } else if (source === "DNS") {
+          // DNS fallback for IP (reverse DNS + HTTP headers)
+          const revDns = d.reverse_dns || {};
+          const headers = d.http_headers || {};
+          
+          cards += card("IP Address", payload.target);
+          if (revDns.hostname) cards += card("Reverse DNS", revDns.hostname);
+          if (revDns.ptr_record) cards += card("PTR Record", revDns.ptr_record);
+          if (headers.status_code) cards += card("HTTP Status", headers.status_code);
+          if (headers.headers?.["Server"]) cards += card("Server", headers.headers["Server"]);
+          if (headers.headers?.["Content-Type"]) cards += card("Content-Type", headers.headers["Content-Type"]);
+        } else {
+          // WhoisFreak IP response shape:
+          // d.ip_address, d.whois_server, d.query_time,
+          // d.organization: { name, handle, address, street, city, state, zip_code, country, date_created, date_updated }
+          // d.inet_nums: [{ start_ip, end_ip, cidr:[], net_name, ... }]
+          // d.abuse_contacts: [{ name, handle, email:[] }]
+          // d.technical_contacts: [{ name, handle, email:[] }]
+          const org      = d.organization || {};
+          const net      = Array.isArray(d.inet_nums) && d.inet_nums.length ? d.inet_nums[0] : {};
+          const abuse    = Array.isArray(d.abuse_contacts) && d.abuse_contacts.length ? d.abuse_contacts[0] : {};
+          const tech     = Array.isArray(d.technical_contacts) && d.technical_contacts.length ? d.technical_contacts[0] : {};
 
-        const cidr     = Array.isArray(net.cidr) ? net.cidr.join(", ") : (net.cidr || "Unknown");
-        const netRange = (net.start_ip && net.end_ip) ? `${net.start_ip} – ${net.end_ip}` : "Unknown";
-        const abuseEmail = Array.isArray(abuse.email) ? abuse.email.join(", ") : (abuse.email || "Unknown");
-        const techEmail  = Array.isArray(tech.email)  ? tech.email.join(", ")  : (tech.email  || "Unknown");
+          const cidr     = Array.isArray(net.cidr) ? net.cidr.join(", ") : (net.cidr || "Unknown");
+          const netRange = (net.start_ip && net.end_ip) ? `${net.start_ip} – ${net.end_ip}` : "Unknown";
+          const abuseEmail = Array.isArray(abuse.email) ? abuse.email.join(", ") : (abuse.email || "Unknown");
+          const techEmail  = Array.isArray(tech.email)  ? tech.email.join(", ")  : (tech.email  || "Unknown");
 
-        cards += card("IP Address",     firstValue(d.ip_address, payload.target));
-        cards += card("Organization",   firstValue(org.name));
-        cards += card("Org Handle",     firstValue(org.handle));
-        cards += card("Country",        firstValue(org.country));
-        cards += card("State/Region",   firstValue(org.state));
-        cards += card("City",           firstValue(org.city));
-        cards += card("Postal Code",    firstValue(org.zip_code));
-        cards += card("Address",        firstValue(org.address, org.street));
-        cards += card("Network Name",   firstValue(net.net_name));
-        cards += card("Network Range",  netRange);
-        cards += card("CIDR",           cidr);
-        cards += card("WHOIS Server",   firstValue(d.whois_server));
-        cards += card("Query Time",     firstValue(d.query_time));
-        cards += card("Org Created",    firstValue(org.date_created));
-        cards += card("Org Updated",    firstValue(org.date_updated));
-        cards += card("Abuse Contact",  firstValue(abuse.name));
-        cards += card("Abuse Email",    abuseEmail === "" ? "Unknown" : abuseEmail);
-        cards += card("Tech Contact",   firstValue(tech.name));
-        cards += card("Tech Email",     techEmail === "" ? "Unknown" : techEmail);
+          cards += card("IP Address",     firstValue(d.ip_address, payload.target));
+          cards += card("Organization",   firstValue(org.name));
+          cards += card("Org Handle",     firstValue(org.handle));
+          cards += card("Country",        firstValue(org.country));
+          cards += card("State/Region",   firstValue(org.state));
+          cards += card("City",           firstValue(org.city));
+          cards += card("Postal Code",    firstValue(org.zip_code));
+          cards += card("Address",        firstValue(org.address, org.street));
+          cards += card("Network Name",   firstValue(net.net_name));
+          cards += card("Network Range",  netRange);
+          cards += card("CIDR",           cidr);
+          cards += card("WHOIS Server",   firstValue(d.whois_server));
+          cards += card("Query Time",     firstValue(d.query_time));
+          cards += card("Org Created",    firstValue(org.date_created));
+          cards += card("Org Updated",    firstValue(org.date_updated));
+          cards += card("Abuse Contact",  firstValue(abuse.name));
+          cards += card("Abuse Email",    abuseEmail === "" ? "Unknown" : abuseEmail);
+          cards += card("Tech Contact",   firstValue(tech.name));
+          cards += card("Tech Email",     techEmail === "" ? "Unknown" : techEmail);
+        }
       }
 
       const signals  = analyzeRisk(payload.type, payload);
       const riskLevel = overallRisk(signals);
       const riskClassMap = { critical: 'risk-critical', warn: 'risk-warn', ok: 'risk-ok', neutral: '' };
       resultEl.className = 'panel' + (riskClassMap[riskLevel] ? ' ' + riskClassMap[riskLevel] : '');
+      const sourceDisplay = source === "WhoisFreak" ? "WhoisFreak API" : source;
 
       resultEl.innerHTML = `
         <div id="bl-section"></div>
@@ -775,6 +903,7 @@
         <div class="meta">
           <span class="chip">Target: ${esc(payload.target)}</span>
           <span class="chip">Type: ${esc(payload.type)}</span>
+          <span class="chip">Source: ${esc(sourceDisplay)}</span>
           <span class="chip">Lookup ID: ${esc(payload.lookup_id)}</span>
         </div>
         <div class="cards">${cards}</div>
@@ -873,7 +1002,7 @@
               <td>${esc(detail)}</td>
               <td>${esc(new Date(row.created_at).toLocaleString())}</td>
               <td><button onclick="relookup('${esc(row.ip_address)}')" style="padding:2px 10px;font-size:0.78rem;">↺ Re-scan</button></td>
-              <td><button onclick="deleteEntry(${row.id}, this)" style="padding:2px 10px;font-size:0.78rem;color:#ff9b9b;border-color:#3a1a1a;">Delete</button></td>
+              <td><button onclick="deleteEntry(${row.id}, this)" style="padding:2px 10px;font-size:0.78rem;color:#A05060;border-color:#E8D4D8;">Delete</button></td>
             </tr>
           `;
         }).join("");
