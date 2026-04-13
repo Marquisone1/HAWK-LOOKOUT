@@ -427,7 +427,8 @@ def backup_list():
                     })
         return jsonify({"backups": files})
     except Exception as exc:
-        return jsonify({"error": str(exc)}), 500
+        logger.exception("backup_list failed")
+        return jsonify({"error": "Internal server error"}), 500
 
 
 # ─────────────────────────────────────────────────────────────────────────────

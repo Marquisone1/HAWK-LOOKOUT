@@ -93,7 +93,7 @@ def require_api_key(f):
 
         user.last_used = datetime.utcnow()
         db.session.commit()
-        logger.info(f"API auth: user {user.id} key={user.api_key[:8]}...")
+        logger.info("API auth success: user_id=%s", user.id)
 
         return f(user, *args, **kwargs)
 

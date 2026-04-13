@@ -1,3 +1,4 @@
+import html
 import json
 import logging
 import re
@@ -151,7 +152,7 @@ class WhoisFreakService:
 
         return (
             {
-                "target": target,
+                "target": html.escape(target, quote=True),
                 "type": query_type,
                 "data": data,
                 "timestamp": datetime.utcnow().isoformat(),

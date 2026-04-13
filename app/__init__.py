@@ -200,27 +200,19 @@ def _bootstrap_db(app):
             # Another worker already created the admin row — not an error.
             db.session.rollback()
         else:
-            border = "=" * 58
-            creds_path = "/data/first_boot_credentials.txt"
-            creds_content = (
-                f"{border}\n"
-                f"  HAWK LOOKOUT \u2014 FIRST BOOT CREDENTIALS\n"
+            logger.warning(
+                "Bootstrap: admin user created (username=%s). "
+                "Password printed to stdout — change it immediately in Settings.",
+                username,
+            )
+            # Print once to stdout (visible via `docker logs`) — never written to disk.
+            print(
+                f"\n{'=' * 58}\n"
+                f"  HAWK LOOKOUT — FIRST BOOT CREDENTIALS\n"
                 f"  Username : {username}\n"
                 f"  Password : {password}\n"
                 f"  Change these immediately in Settings!\n"
-                f"{border}\n"
-            )
-            try:
-                import stat
-                with open(creds_path, "w") as cf:
-                    cf.write(creds_content)
-                import os as _os
-                _os.chmod(creds_path, stat.S_IRUSR | stat.S_IWUSR)
-            except Exception as e:
-                logger.warning(f"Could not write credentials file: {e}")
-            logger.warning(
-                f"Bootstrap: admin created. Credentials written to {creds_path} — "
-                "read and delete this file, then change your password in Settings."
+                f"{'=' * 58}\n"
             )
 
     # ── API-key user (dedup + ensure one row) ────────────────────────────────
