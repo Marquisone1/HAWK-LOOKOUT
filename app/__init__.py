@@ -255,4 +255,4 @@ def _bootstrap_db(app):
             logger.info("Bootstrap: internal API key user created.")
 
     api_key_user = User.query.first()
-    logger.info(f"Active internal API key: {api_key_user.api_key[:8]}...")
+    logger.info("Bootstrap: internal API key is configured.")
