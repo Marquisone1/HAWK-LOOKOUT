@@ -90,10 +90,12 @@ def create_app():
 
     @app.before_request
     def _ensure_session_role():
-        if 'site_user_id' in session and 'site_role' not in session:
+        if 'site_user_id' in session:
             user = SiteUser.query.get(session['site_user_id'])
-            if user:
-                session['site_role'] = user.role
+            if not user:
+                session.clear()
+                return
+            session['site_role'] = user.role
 
     _start_daily_backup(app)
 

@@ -1,3 +1,4 @@
+import hmac
 import logging
 import re
 import threading
@@ -42,10 +43,13 @@ def _is_rate_limited(ip: str, limit: int = _API_RATE_LIMIT, window: int = _API_R
 
 
 def _validate_api_key(api_key: str):
-    """Return the User row matching api_key, or None."""
+    """Return the User row matching api_key, or None (constant-time compare)."""
     if not api_key:
         return None
-    return User.query.filter_by(api_key=api_key).first()
+    for user in User.query.all():
+        if hmac.compare_digest(user.api_key, api_key):
+            return user
+    return None
 
 
 # ─────────────────────────────────────────────────────────────────────────────

@@ -166,7 +166,7 @@ def login():
             error = "Too many login attempts. Please wait a moment and try again."
             return render_template("login.html", error=error), 429
 
-        username = request.form.get("username", "").strip()
+        username = request.form.get("username", "").strip()[:80]
         password = request.form.get("password", "")
 
         user = SiteUser.query.filter_by(username=username).first()
@@ -187,7 +187,7 @@ def login():
     return render_template("login.html", error=error)
 
 
-@web_bp.route("/logout")
+@web_bp.route("/logout", methods=["GET", "POST"])
 def logout():
     session.clear()
     return redirect(url_for("whois.login"))
@@ -211,7 +211,7 @@ def settings():
             flash("Too many requests. Please wait a moment and try again.", "error")
             return redirect(url_for("whois.settings")), 429
 
-        new_username = request.form.get("username", "").strip()
+        new_username = request.form.get("username", "").strip()[:80]
         new_password = request.form.get("password", "")
         confirm = request.form.get("confirm_password", "")
         new_api_key = request.form.get("api_key", "").strip()
@@ -282,7 +282,7 @@ _MAX_IMPORT_BYTES = 50 * 1024 * 1024  # 50 MB hard limit for uploaded DB
 
 
 @web_bp.route("/backup/export", methods=["GET"])
-@web_login_required
+@require_admin
 def backup_export():
     """Download the current database as a .db file."""
     from datetime import datetime as _dt
@@ -315,7 +315,7 @@ def backup_export():
 
 
 @web_bp.route("/backup/run", methods=["POST"])
-@web_login_required
+@require_admin
 def backup_run():
     """Trigger an immediate backup to /data/backups/."""
     from app import run_backup
@@ -332,7 +332,7 @@ def backup_run():
 
 
 @web_bp.route("/backup/import", methods=["POST"])
-@web_login_required
+@require_admin
 def backup_import():
     """Restore the database from an uploaded .db file."""
     uploaded = request.files.get("db_file")
@@ -400,7 +400,7 @@ def backup_import():
 
 
 @web_bp.route("/backup/list", methods=["GET"])
-@web_login_required
+@require_admin
 def backup_list():
     """Return a JSON list of available backup files."""
     try:
@@ -499,7 +499,7 @@ def admin_panel():
 @web_bp.route("/admin/create", methods=["POST"])
 @require_admin
 def admin_create_user():
-    username = request.form.get("username", "").strip()
+    username = request.form.get("username", "").strip()[:80]
     password = request.form.get("password", "")
     confirm = request.form.get("confirm_password", "")
     role = request.form.get("role", "analyst").strip()
