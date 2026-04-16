@@ -74,7 +74,7 @@ def web_lookup():
     if not isinstance(target, str):
         return jsonify({"error": "Bad Request", "message": "Target must be a string"}), 400
     result, status_code = _web_lookup_service.lookup(target, api_user, site_user_id=session.get('site_user_id'))
-    logger.info(f"Web lookup by session user {session.get('site_user_id')}: {target}")
+    logger.info(f"Web lookup by session user {session.get('site_user_id')}")
     return jsonify(_sanitize(result)), status_code
 
 
@@ -618,7 +618,7 @@ def backup_export():
         )
     except Exception as exc:
         os.unlink(tmp.name)
-        logger.error(f"DB export failed: {exc}")
+        logger.exception("DB export failed")
         flash("Export failed. See server logs.", "error")
         return redirect(url_for("whois.settings"))
 
@@ -633,10 +633,10 @@ def backup_run():
         fname = os.path.basename(path)
         size_kb = round(os.path.getsize(path) / 1024, 1)
         flash(f"Backup saved: {fname} ({size_kb} KB)", "success")
-        logger.warning(f"Manual backup triggered by session user {session.get('site_user_id')}: {path}")
+        logger.warning(f"Manual backup triggered by session user {session.get('site_user_id')}")
     except Exception as exc:
-        logger.error(f"Manual backup failed: {exc}")
-        flash(f"Backup failed: {exc}", "error")
+        logger.exception("Manual backup failed")
+        flash("Backup failed. See server logs.", "error")
     return redirect(url_for("whois.settings"))
 
 
@@ -698,8 +698,8 @@ def backup_import():
         return redirect(url_for("whois.login"))
 
     except Exception as exc:
-        logger.error(f"DB import failed: {exc}")
-        flash(f"Import failed: {exc}", "error")
+        logger.exception("DB import failed")
+        flash("Import failed. See server logs.", "error")
         return redirect(url_for("whois.settings"))
     finally:
         try:

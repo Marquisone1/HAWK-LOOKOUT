@@ -996,7 +996,7 @@ class GoogleSafeBrowsingService:
                 }
             
             if resp.status_code != 200:
-                logger.error(f"Google Safe Browsing error {resp.status_code}: {resp.text[:200]}")
+                logger.error(f"Google Safe Browsing API error: HTTP {resp.status_code}")
                 return {
                     "target": target,
                     "status": "error",
