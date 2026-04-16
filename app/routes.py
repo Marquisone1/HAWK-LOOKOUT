@@ -3,6 +3,7 @@ import os
 import shutil
 import sqlite3
 import tempfile
+from html import escape as _esc
 
 from flask import (
     Blueprint,
@@ -21,6 +22,18 @@ from .models import SiteUser, User, LookupHistory, db
 from .services import WhoisFreakService, BlacklistService
 
 logger = logging.getLogger(__name__)
+
+
+def _sanitize(obj):
+    """Recursively HTML-escape every string value in a JSON-serialisable object."""
+    if isinstance(obj, str):
+        return _esc(obj, quote=True)
+    if isinstance(obj, dict):
+        return {k: _sanitize(v) for k, v in obj.items()}
+    if isinstance(obj, list):
+        return [_sanitize(item) for item in obj]
+    return obj
+
 
 web_bp = Blueprint("whois", __name__)
 
@@ -61,7 +74,7 @@ def web_lookup():
         return jsonify({"error": "Bad Request", "message": "Target must be a string"}), 400
     result, status_code = _web_lookup_service.lookup(target, api_user, site_user_id=session.get('site_user_id'))
     logger.info(f"Web lookup by session user {session.get('site_user_id')}: {target}")
-    return jsonify(result), status_code
+    return jsonify(_sanitize(result)), status_code
 
 
 @web_bp.route("/web/blacklist", methods=["GET"])

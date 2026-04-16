@@ -269,7 +269,7 @@ class IPAPIService:
             return {"error": "IP lookup failed", "status": data.get("status") if resp.status_code == 200 else f"HTTP {resp.status_code}"}
         except Exception as e:
             logger.debug(f"IP-API lookup failed for {ip}: {e}")
-            return {"error": str(e)}
+            return {"error": "Failed to retrieve IP information"}
 
 
 class DNSService:
@@ -435,7 +435,7 @@ class DNSService:
         
         except Exception as e:
             logger.debug(f"DNS lookup failed for {domain}: {e}")
-            return {"error": str(e)}
+            return {"error": "Failed to retrieve DNS records"}
     
     @staticmethod
     def _get_ssl_info(domain: str) -> dict:
@@ -445,6 +445,8 @@ class DNSService:
             import socket
             
             context = ssl.create_default_context()
+            # Enforce TLSv1.2 or higher — disable older insecure protocols
+            context.minimum_version = ssl.TLSVersion.TLSv1_2
             with socket.create_connection((domain, 443), timeout=3) as sock:
                 with context.wrap_socket(sock, server_hostname=domain) as ssock:
                     cert = ssock.getpeercert()
@@ -460,6 +462,7 @@ class DNSService:
                         }
         except Exception as e:
             logger.debug(f"SSL info retrieval failed for {domain}: {e}")
+            # Don't expose exception details to client
         return None
     
     @staticmethod
