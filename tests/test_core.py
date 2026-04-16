@@ -30,7 +30,7 @@ def client(app):
 def api_user(app):
     """Create test API user."""
     with app.app_context():
-        user = User(username='testuser', password_hash='dummy', api_key='test-key-123')
+        user = User(api_key='test-key-123')
         db.session.add(user)
         db.session.commit()
         return user
