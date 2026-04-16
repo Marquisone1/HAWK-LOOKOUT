@@ -13,7 +13,11 @@ class RequestIdFilter(logging.Filter):
     """Add request_id to all log records."""
     
     def filter(self, record):
-        record.request_id = getattr(g, 'request_id', 'N/A')
+        try:
+            record.request_id = getattr(g, 'request_id', 'N/A')
+        except RuntimeError:
+            # Outside of application context (e.g., during app init)
+            record.request_id = 'N/A'
         return True
 
 

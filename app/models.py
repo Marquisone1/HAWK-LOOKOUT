@@ -42,6 +42,9 @@ class LookupHistory(db.Model):
     site_user_id = db.Column(
         db.Integer, db.ForeignKey("site_users.id"), nullable=True, index=True
     )
+    case_id = db.Column(
+        db.Integer, db.ForeignKey("lookup_cases.id"), nullable=True, index=True
+    )
     ip_address = db.Column(db.String(253), nullable=False)  # also holds domain names
     result = db.Column(db.Text, nullable=False)
     source = db.Column(db.String(50), nullable=True)  # Track which service: "WhoisFreak", "IP-API", "DNS"
