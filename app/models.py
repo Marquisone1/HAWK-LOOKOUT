@@ -79,3 +79,75 @@ class SiteUser(db.Model):
 
     def __repr__(self):
         return f"<SiteUser {self.username} ({self.role})>"
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Phase C: Workflow (Comments, Cases, Evidence Snapshots)
+# ─────────────────────────────────────────────────────────────────────────────
+
+class LookupCase(db.Model):
+    """Group related lookups into investigation cases."""
+    
+    __tablename__ = "lookup_cases"
+    
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=False)
+    site_user_id = db.Column(db.Integer, db.ForeignKey("site_users.id"), nullable=True)
+    
+    case_id = db.Column(db.String(50), unique=True, nullable=False, index=True)  # e.g. 'CASE-2026-001'
+    title = db.Column(db.String(255), nullable=False)
+    description = db.Column(db.Text, nullable=True)
+    status = db.Column(db.String(20), default='open')  # open, investigating, resolved, false_positive
+    severity = db.Column(db.String(20), default='medium')  # low, medium, high, critical
+    
+    created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    
+    lookups = db.relationship("LookupHistory", backref="case", lazy=True)
+    notes = db.relationship("LookupNote", backref="case", lazy=True, cascade="all, delete-orphan")
+    
+    def __repr__(self):
+        return f"<LookupCase {self.case_id}: {self.title}>"
+
+
+class LookupNote(db.Model):
+    """Comments/notes on a lookup or case."""
+    
+    __tablename__ = "lookup_notes"
+    
+    id = db.Column(db.Integer, primary_key=True)
+    lookup_id = db.Column(db.Integer, db.ForeignKey("lookup_history.id"), nullable=True)
+    case_id = db.Column(db.Integer, db.ForeignKey("lookup_cases.id"), nullable=True)
+    site_user_id = db.Column(db.Integer, db.ForeignKey("site_users.id"), nullable=False)
+    
+    content = db.Column(db.Text, nullable=False)
+    tags = db.Column(db.String(255), nullable=True)  # CSV: phishing,malware,suspicious
+    verdict = db.Column(db.String(20), nullable=True)  # clean, suspicious, malicious
+    
+    created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    
+    def __repr__(self):
+        return f"<LookupNote {self.id} on lookup {self.lookup_id}>"
+
+
+class LookupSnapshot(db.Model):
+    """Immutable evidence snapshot of a lookup result."""
+    
+    __tablename__ = "lookup_snapshots"
+    
+    id = db.Column(db.Integer, primary_key=True)
+    lookup_id = db.Column(db.Integer, db.ForeignKey("lookup_history.id"), nullable=False)
+    case_id = db.Column(db.Integer, db.ForeignKey("lookup_cases.id"), nullable=True)
+    
+    # Frozen copy of the lookup result at snapshot time
+    data_json = db.Column(db.Text, nullable=False)
+    
+    reason = db.Column(db.String(255), nullable=True)  # 'evidence_for_case', 'pre_remediation', etc.
+    created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
+    
+    def get_data(self):
+        return json.loads(self.data_json)
+    
+    def __repr__(self):
+        return f"<LookupSnapshot {self.id} for lookup {self.lookup_id}>"

@@ -19,6 +19,9 @@ from .config import Config
 from .models import db, User, SiteUser
 from .routes import web_bp
 from .api import api_bp
+from .phase_b_routes import phase_b_bp
+from .phase_c_routes import phase_c_bp
+from .logging_util import setup_json_logging, inject_request_id
 
 logger = logging.getLogger(__name__)
 
@@ -41,10 +44,8 @@ def create_app():
     app = Flask(__name__, template_folder="templates")
     app.config.from_object(Config)
 
-    logging.basicConfig(
-        level=logging.INFO,
-        format="%(asctime)s %(levelname)-8s %(name)s: %(message)s",
-    )
+    # Set up structured JSON logging
+    setup_json_logging(app)
 
     # Trust exactly one upstream proxy hop (Nginx).
     # This populates request.remote_addr with the real client IP from
@@ -74,6 +75,8 @@ def create_app():
     db.init_app(app)
     app.register_blueprint(web_bp)
     app.register_blueprint(api_bp)
+    app.register_blueprint(phase_b_bp)
+    app.register_blueprint(phase_c_bp)
 
     @app.after_request
     def set_cache_headers(response):
@@ -87,6 +90,11 @@ def create_app():
         db.create_all()
         _migrate_db()
         _bootstrap_db(app)
+
+    @app.before_request
+    def _inject_request_context():
+        """Inject request ID and start timer."""
+        inject_request_id()
 
     @app.before_request
     def _ensure_session_role():
