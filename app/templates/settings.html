@@ -217,6 +217,8 @@
       <a href="/" class="nav-back">← Back to Dashboard</a>
       <div style="display:flex;gap:10px;">
         <a href="/dashboard" class="nav-back" style="border:1px solid var(--line);padding:6px 14px;border-radius:8px;">📊 Dashboard</a>
+        <a href="/risk" class="nav-back" style="border:1px solid var(--line);padding:6px 14px;border-radius:8px;">⚠️ Risk</a>
+        <a href="/cases" class="nav-back" style="border:1px solid var(--line);padding:6px 14px;border-radius:8px;">📋 Cases</a>
         {% if session.get('site_role') == 'admin' %}
         <a href="/admin" class="nav-back" style="border:1px solid var(--line);padding:6px 14px;border-radius:8px;">👥 Users</a>
         {% endif %}
@@ -322,6 +324,27 @@
                placeholder="Leave blank to keep current key"
                autocomplete="new-password" />
         <p class="hint">Get a free Auth-Key at <a href="https://auth.abuse.ch/" target="_blank" rel="noopener" style="color:var(--accent)">auth.abuse.ch</a>. Minimum 8 characters.</p>
+      </div>
+
+      <hr class="divider" />
+      <p class="section-title">Google Safe Browsing API Key (Server only)</p>
+
+      <div class="form-group">
+        <label>Status</label>
+        {% if gsb_key_set %}
+          <div style="color: var(--ok); font-size:0.9rem;">&#10003; Configured ({{ gsb_key_hint }})</div>
+        {% else %}
+          <div style="color: var(--warn); font-size:0.9rem;">&#9888; Not set — Safe Browsing threat checks will be skipped.</div>
+        {% endif %}
+        <p class="hint">This key is stored server-side only and never sent to the browser.</p>
+      </div>
+
+      <div class="form-group">
+        <label for="google_safe_browsing_api_key">Set New Google Safe Browsing Key</label>
+        <input type="password" id="google_safe_browsing_api_key" name="google_safe_browsing_api_key"
+               placeholder="Leave blank to keep current key"
+               autocomplete="new-password" />
+        <p class="hint">Get a free API key at <a href="https://developers.google.com/safe-browsing" target="_blank" rel="noopener" style="color:var(--accent)">Google Safe Browsing Console</a>. Minimum 8 characters.</p>
       </div>
       {% endif %}
 

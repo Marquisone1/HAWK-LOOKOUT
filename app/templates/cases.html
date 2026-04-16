@@ -1,0 +1,655 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="csrf-token" content="{{ csrf_token() }}" />
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="icon" type="image/svg+xml" href="{{ url_for('static', filename='favicon.svg') }}">
+  <title>HAWK LOOKOUT — Cases & Workflow</title>
+  <style>
+    :root {
+      --bg: #1E1E1E;
+      --panel: #2A2A2A;
+      --line: #3D3D3D;
+      --text: #E8E8E8;
+      --muted: #A0A0A0;
+      --accent: #5BA3B2;
+      --ok: #6DB87E;
+      --warn: #D4A574;
+      --danger: #B8707A;
+    }
+
+    body.light {
+      --bg: #FAF7F3;
+      --panel: #FFF8F0;
+      --line: #D4C5B0;
+      --text: #2C2416;
+      --muted: #7A6D5F;
+      --accent: #4A7F8C;
+      --ok: #6B9D7A;
+      --warn: #C9956B;
+      --danger: #A05060;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      font-family: "Roboto", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background: radial-gradient(circle at top right, #0F0F0F 0%, var(--bg) 45%);
+      color: var(--text);
+      min-height: 100vh;
+      padding: 16px;
+      line-height: 1.5;
+    }
+
+    .app {
+      max-width: 1400px;
+      margin: 0 auto;
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 16px;
+      padding: 32px 40px 40px;
+    }
+
+    .top-nav {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 28px;
+      padding-bottom: 20px;
+      border-bottom: 1px solid var(--line);
+    }
+
+    .nav-brand h1 { margin: 0; font-size: 1.8rem; letter-spacing: 0.08em; color: var(--accent); }
+    .nav-brand .subtitle { margin: 4px 0 0; color: var(--muted); font-size: 0.9rem; }
+
+    .nav-links { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+
+    .nav-btn {
+      text-decoration: none; color: var(--text); border: 1px solid var(--line);
+      border-radius: 10px; padding: 8px 18px; font-size: 0.9rem; font-weight: 600;
+      transition: border-color 0.15s, color 0.15s;
+    }
+    .nav-btn:hover { border-color: var(--accent); color: var(--accent); }
+    .nav-btn.logout { color: #A05060; border-color: #E8D4D8; }
+    .nav-btn.logout:hover { border-color: #A05060; }
+
+    /* Buttons */
+    .btn {
+      background: var(--accent); color: white; border: none; padding: 10px 18px;
+      border-radius: 8px; font-weight: 600; cursor: pointer; font-size: 0.9rem;
+      transition: opacity 0.2s;
+    }
+    .btn:hover { opacity: 0.9; }
+    .btn.secondary { background: transparent; border: 1px solid var(--line); color: var(--text); }
+
+    /* Case cards */
+    .cases-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 16px; margin-bottom: 24px; }
+
+    .case-card {
+      background: var(--panel); border: 1px solid var(--line);
+      border-radius: 12px; padding: 20px; cursor: pointer;
+      transition: border-color 0.2s, box-shadow 0.2s;
+    }
+
+    .case-card:hover { border-color: var(--accent); box-shadow: 0 4px 12px rgba(91, 163, 178, 0.1); }
+
+    .case-id { font-size: 0.8rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.1em; }
+    .case-title { font-size: 1.2rem; font-weight: 600; margin: 8px 0; color: var(--text); }
+    .case-desc { font-size: 0.9rem; color: var(--muted); margin-bottom: 12px; }
+
+    .case-meta {
+      display: flex; justify-content: space-between; align-items: center;
+      padding-top: 12px; border-top: 1px solid var(--line);
+      margin-top: 12px; font-size: 0.8rem;
+    }
+
+    .case-status {
+      padding: 4px 10px; border-radius: 6px; font-weight: 600;
+    }
+
+    .case-status.open { background: rgba(109, 184, 126, 0.15); color: #6DB87E; }
+    .case-status.investigating { background: rgba(212, 165, 116, 0.15); color: #D4A574; }
+    .case-status.resolved { background: rgba(91, 163, 178, 0.15); color: #5BA3B2; }
+    .case-status.false-positive { background: rgba(160, 80, 96, 0.15); color: #B8707A; }
+
+    .case-severity {
+      padding: 4px 10px; border-radius: 6px; font-weight: 600;
+    }
+
+    .case-severity.critical { background: rgba(184, 112, 122, 0.15); color: #B8707A; }
+    .case-severity.high { background: rgba(212, 165, 116, 0.15); color: #D4A574; }
+    .case-severity.medium { background: rgba(91, 163, 178, 0.15); color: #5BA3B2; }
+    .case-severity.low { background: rgba(109, 184, 126, 0.15); color: #6DB87E; }
+
+    /* Panel */
+    .panel {
+      background: var(--panel); border: 1px solid var(--line);
+      border-radius: 12px; padding: 20px; margin-bottom: 24px;
+    }
+
+    .panel-title {
+      font-size: 0.85rem; text-transform: uppercase; letter-spacing: 0.1em;
+      color: var(--accent); margin: 0 0 16px; font-weight: 700;
+    }
+
+    /* Notes section */
+    .notes-list {
+      display: flex; flex-direction: column; gap: 12px;
+    }
+
+    .note-item {
+      background: var(--panel); border: 1px solid var(--line);
+      border-radius: 10px; padding: 16px;
+    }
+
+    .note-header {
+      display: flex; justify-content: space-between; margin-bottom: 8px;
+      font-size: 0.8rem; color: var(--muted);
+    }
+
+    .note-verdict {
+      display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: 0.75rem;
+      font-weight: 600;
+    }
+
+    .note-verdict.clean { background: rgba(109, 184, 126, 0.15); color: #6DB87E; }
+    .note-verdict.suspicious { background: rgba(212, 165, 116, 0.15); color: #D4A574; }
+    .note-verdict.malicious { background: rgba(184, 112, 122, 0.15); color: #B8707A; }
+
+    .note-content { color: var(--text); }
+    .note-tags { font-size: 0.8rem; color: var(--muted); margin-top: 8px; }
+
+    /* Table */
+    table { width: 100%; border-collapse: collapse; font-size: 0.85rem; }
+    th, td { text-align: left; padding: 12px; border-bottom: 1px solid var(--line); }
+    th { color: var(--muted); font-size: 0.75rem; text-transform: uppercase; font-weight: 700; }
+
+    .loading-msg { text-align: center; color: var(--muted); padding: 40px 0; }
+    .error-msg { color: #B8707A; background: rgba(184, 112, 122, 0.1); padding: 16px; border-radius: 10px; }
+
+    .modal {
+      display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+      background: rgba(0, 0, 0, 0.5); z-index: 1000; align-items: center; justify-content: center;
+    }
+
+    .modal.active { display: flex; }
+
+    .modal-content {
+      background: var(--panel); border: 1px solid var(--line);
+      border-radius: 12px; padding: 24px; max-width: 500px; width: 90%;
+    }
+
+    .modal-header {
+      font-size: 1.3rem; font-weight: 700; margin-bottom: 20px;
+      color: var(--text);
+    }
+
+    .form-group {
+      margin-bottom: 16px;
+    }
+
+    .form-group label {
+      display: block; font-weight: 600; margin-bottom: 6px; color: var(--text);
+      font-size: 0.9rem;
+    }
+
+    .form-group input,
+    .form-group textarea,
+    .form-group select {
+      width: 100%; padding: 10px; border: 1px solid var(--line);
+      border-radius: 8px; background: var(--bg); color: var(--text);
+      font-family: inherit;
+    }
+
+    .form-group textarea { resize: vertical; min-height: 100px; }
+
+    .modal-footer {
+      display: flex; gap: 12px; justify-content: flex-end; margin-top: 24px;
+    }
+
+    @media (max-width: 900px) {
+      .cases-grid { grid-template-columns: 1fr; }
+      .app { padding: 20px 24px; }
+    }
+  </style>
+</head>
+<body>
+  <main class="app">
+    <nav class="top-nav">
+      <div class="nav-brand">
+        <h1>📋 Cases & Workflow</h1>
+        <p class="subtitle">Investigation cases, notes, snapshots, and exports</p>
+      </div>
+      <div class="nav-links">
+        <a href="/" class="nav-btn">🦅 Lookups</a>
+        <a href="/dashboard" class="nav-btn">📊 Dashboard</a>
+        <a href="/risk" class="nav-btn">⚠️ Risk Intelligence</a>
+        {% if session.get('site_role') == 'admin' %}
+        <a href="/admin" class="nav-btn">👥 Users</a>
+        {% endif %}
+        <a href="/settings" class="nav-btn">⚙ Settings</a>
+        <a href="/logout" class="nav-btn logout">Logout</a>
+      </div>
+    </nav>
+
+    <!-- Create Case Button -->
+    <div style="margin-bottom: 28px;">
+      <button class="btn" onclick="openCreateCase()">+ Create New Case</button>
+    </div>
+
+    <!-- Cases Grid -->
+    <div id="cases-container">
+      <div class="loading-msg">Loading cases...</div>
+    </div>
+  </main>
+
+  <!-- Create/Edit Case Modal -->
+  <div id="caseModal" class="modal">
+    <div class="modal-content">
+      <div class="modal-header">Create Investigation Case</div>
+      <form id="caseForm">
+        <div class="form-group">
+          <label for="caseTitle">Case Title</label>
+          <input type="text" id="caseTitle" placeholder="e.g., Suspicious IP Campaign" required>
+        </div>
+        <div class="form-group">
+          <label for="caseDesc">Description</label>
+          <textarea id="caseDesc" placeholder="Describe the investigation..."></textarea>
+        </div>
+        <div class="form-group">
+          <label for="caseSeverity">Severity</label>
+          <select id="caseSeverity">
+            <option value="low">Low</option>
+            <option value="medium" selected>Medium</option>
+            <option value="high">High</option>
+            <option value="critical">Critical</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label for="caseStatus">Status</label>
+          <select id="caseStatus">
+            <option value="open" selected>Open</option>
+            <option value="investigating">Investigating</option>
+            <option value="resolved">Resolved</option>
+            <option value="false_positive">False Positive</option>
+          </select>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn secondary" onclick="closeModal()">Cancel</button>
+          <button type="submit" class="btn">Create Case</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Case Details Modal -->
+  <div id="caseDetailsModal" class="modal">
+    <div class="modal-content" style="max-width: 700px; max-height: 80vh; overflow-y: auto;">
+      <div class="modal-header" id="detailsTitle">Case Details</div>
+      
+      <!-- Details Section -->
+      <div style="margin-bottom: 24px; padding-bottom: 24px; border-bottom: 1px solid var(--line);">
+        <h3 style="margin: 0 0 16px; color: var(--accent); font-size: 0.9rem; text-transform: uppercase;">📋 Case Information</h3>
+        <div class="form-group">
+          <label style="margin-bottom: 4px;">Case ID</label>
+          <div id="detailsCaseId" style="padding: 10px 12px; background: var(--line); border-radius: 8px; color: var(--text);"></div>
+        </div>
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 16px;">
+          <div class="form-group">
+            <label style="margin-bottom: 4px;">Status</label>
+            <select id="detailsStatus" style="width: 100%; padding: 10px; border: 1px solid var(--line); border-radius: 8px; background: var(--bg); color: var(--text);"></select>
+          </div>
+          <div class="form-group">
+            <label style="margin-bottom: 4px;">Severity</label>
+            <select id="detailsSeverity" style="width: 100%; padding: 10px; border: 1px solid var(--line); border-radius: 8px; background: var(--bg); color: var(--text);"></select>
+          </div>
+        </div>
+        <div class="form-group">
+          <label style="margin-bottom: 4px;">Description</label>
+          <textarea id="detailsDesc" style="width: 100%; padding: 10px; border: 1px solid var(--line); border-radius: 8px; background: var(--bg); color: var(--text); min-height: 80px;" placeholder="Case description..."></textarea>
+        </div>
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px; font-size: 0.85rem; color: var(--muted);">
+          <div>
+            <div style="font-weight: 600;">Created</div>
+            <div id="detailsCreated"></div>
+          </div>
+          <div>
+            <div style="font-weight: 600;">Updated</div>
+            <div id="detailsUpdated"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Work Log Section -->
+      <div style="margin-bottom: 24px; padding-bottom: 24px; border-bottom: 1px solid var(--line);">
+        <h3 style="margin: 0 0 16px; color: var(--accent); font-size: 0.9rem; text-transform: uppercase;">📝 Work Log</h3>
+        <div class="form-group">
+          <label style="margin-bottom: 6px;">Add Work Entry</label>
+          <textarea id="workEntry" style="width: 100%; padding: 10px; border: 1px solid var(--line); border-radius: 8px; background: var(--bg); color: var(--text); min-height: 70px;" placeholder="Log your investigation progress, findings, or actions..."></textarea>
+        </div>
+        <button type="button" class="btn" onclick="addWorkEntry()" style="width: 100%; margin-bottom: 16px;">Log Work Entry</button>
+        <div id="workLogList" style="display: flex; flex-direction: column; gap: 12px; max-height: 300px; overflow-y: auto;">
+          <div style="text-align: center; color: var(--muted); padding: 20px;">No work entries yet</div>
+        </div>
+      </div>
+
+      <!-- Notes Section -->
+      <div>
+        <h3 style="margin: 0 0 16px; color: var(--accent); font-size: 0.9rem; text-transform: uppercase;">💬 Notes</h3>
+        <div class="form-group">
+          <label style="margin-bottom: 6px;">Add Note</label>
+          <textarea id="newNote" style="width: 100%; padding: 10px; border: 1px solid var(--line); border-radius: 8px; background: var(--bg); color: var(--text); min-height: 70px;" placeholder="Add a note or observation..."></textarea>
+        </div>
+        <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px; margin-bottom: 16px;">
+          <div class="form-group">
+            <label for="noteVerdict" style="margin-bottom: 4px; font-size: 0.85rem;">Verdict</label>
+            <select id="noteVerdict" style="width: 100%; padding: 8px; border: 1px solid var(--line); border-radius: 8px; background: var(--bg); color: var(--text); font-size: 0.85rem;">
+              <option value="">-- Select --</option>
+              <option value="clean">Clean</option>
+              <option value="suspicious">Suspicious</option>
+              <option value="malicious">Malicious</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label for="noteTags" style="margin-bottom: 4px; font-size: 0.85rem;">Tags</label>
+            <input type="text" id="noteTags" style="width: 100%; padding: 8px; border: 1px solid var(--line); border-radius: 8px; background: var(--bg); color: var(--text); font-size: 0.85rem;" placeholder="e.g., phishing, malware">
+          </div>
+          <div style="display: flex; align-items: flex-end;">
+            <button type="button" class="btn" onclick="addNote()" style="width: 100%;">Add Note</button>
+          </div>
+        </div>
+        <div id="notesList" style="display: flex; flex-direction: column; gap: 12px; max-height: 300px; overflow-y: auto;">
+          <div style="text-align: center; color: var(--muted); padding: 20px;">No notes yet</div>
+        </div>
+      </div>
+
+      <div class="modal-footer" style="margin-top: 24px; padding-top: 24px; border-top: 1px solid var(--line);">
+        <button type="button" class="btn" onclick="saveCaseDetails()" style="flex: 1; margin-right: 12px;">Save Changes</button>
+        <button type="button" class="btn secondary" onclick="closeCaseDetails()">Close</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const CSRF = document.querySelector('meta[name="csrf-token"]').getAttribute('content');
+    const headers = { 'X-CSRFToken': CSRF, 'X-Requested-With': 'XMLHttpRequest' };
+
+    function esc(v) {
+      if (v === null || v === undefined) return "-";
+      return String(v).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
+    }
+
+    function openCreateCase() {
+      document.getElementById('caseModal').classList.add('active');
+    }
+
+    function closeModal() {
+      document.getElementById('caseModal').classList.remove('active');
+      document.getElementById('caseForm').reset();
+    }
+
+    document.getElementById('caseForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const data = {
+        title: document.getElementById('caseTitle').value,
+        description: document.getElementById('caseDesc').value,
+        severity: document.getElementById('caseSeverity').value,
+        status: document.getElementById('caseStatus').value,
+      };
+
+      try {
+        const resp = await fetch('/api/v2/cases', {
+          method: 'POST',
+          headers: { ...headers, 'Content-Type': 'application/json' },
+          body: JSON.stringify(data),
+        });
+
+        if (resp.ok) {
+          alert('Case created successfully!');
+          closeModal();
+          loadCases();
+        } else {
+          alert('Error creating case: ' + resp.status);
+        }
+      } catch (err) {
+        alert('Error: ' + err.message);
+      }
+    });
+
+    async function loadCases() {
+      try {
+        const resp = await fetch('/api/v2/cases', { headers });
+        const cases = resp.ok ? await resp.json() : [];
+
+        const container = document.getElementById('cases-container');
+        
+        if (!cases.length) {
+          container.innerHTML = '<div class="loading-msg">No cases yet. Create one to get started!</div>';
+          return;
+        }
+
+        let html = '<div class="cases-grid">';
+        cases.forEach(c => {
+          html += `
+            <div class="case-card" onclick="viewCase(${c.id})">
+              <div class="case-id">${esc(c.case_id)}</div>
+              <div class="case-title">${esc(c.title)}</div>
+              <div class="case-desc">${esc(c.description || '')}</div>
+              <div class="case-meta">
+                <span class="case-status ${c.status}">${c.status.toUpperCase()}</span>
+                <span class="case-severity ${c.severity}">${c.severity.toUpperCase()}</span>
+              </div>
+            </div>
+          `;
+        });
+        html += '</div>';
+        container.innerHTML = html;
+      } catch (err) {
+        document.getElementById('cases-container').innerHTML = `<div class="error-msg">Error: ${esc(err.message)}</div>`;
+      }
+    }
+
+    function viewCase(caseId) {
+      // Load and display case details
+      loadCaseDetails(caseId);
+    }
+
+    let currentCaseId = null;
+
+    async function loadCaseDetails(caseId) {
+      currentCaseId = caseId;
+      try {
+        const resp = await fetch(`/api/v2/cases/${caseId}`, { headers });
+        if (!resp.ok) {
+          alert('Error loading case details');
+          return;
+        }
+        const data = await resp.json();
+        
+        // Populate details modal
+        document.getElementById('detailsTitle').textContent = esc(data.title);
+        document.getElementById('detailsCaseId').textContent = esc(data.case_id);
+        
+        // Status dropdown
+        const statusSelect = document.getElementById('detailsStatus');
+        statusSelect.innerHTML = `
+          <option value="open" ${data.status === 'open' ? 'selected' : ''}>Open</option>
+          <option value="investigating" ${data.status === 'investigating' ? 'selected' : ''}>Investigating</option>
+          <option value="resolved" ${data.status === 'resolved' ? 'selected' : ''}>Resolved</option>
+          <option value="false_positive" ${data.status === 'false_positive' ? 'selected' : ''}>False Positive</option>
+        `;
+        
+        // Severity dropdown
+        const severitySelect = document.getElementById('detailsSeverity');
+        severitySelect.innerHTML = `
+          <option value="low" ${data.severity === 'low' ? 'selected' : ''}>Low</option>
+          <option value="medium" ${data.severity === 'medium' ? 'selected' : ''}>Medium</option>
+          <option value="high" ${data.severity === 'high' ? 'selected' : ''}>High</option>
+          <option value="critical" ${data.severity === 'critical' ? 'selected' : ''}>Critical</option>
+        `;
+        
+        document.getElementById('detailsDesc').value = data.description || '';
+        document.getElementById('detailsCreated').textContent = new Date(data.created_at).toLocaleString();
+        document.getElementById('detailsUpdated').textContent = new Date(data.updated_at).toLocaleString();
+        
+        // Load notes
+        await loadCaseNotes(caseId);
+        
+        // Load work log (treated as notes with type="work")
+        await loadWorkLog(caseId);
+        
+        // Open modal
+        document.getElementById('caseDetailsModal').classList.add('active');
+      } catch (err) {
+        alert('Error: ' + err.message);
+      }
+    }
+
+    async function loadCaseNotes(caseId) {
+      try {
+        const resp = await fetch(`/api/v2/cases/${caseId}/notes`, { headers });
+        const notes = resp.ok ? await resp.json() : [];
+        
+        const notesList = document.getElementById('notesList');
+        
+        if (!notes || notes.length === 0) {
+          notesList.innerHTML = '<div style="text-align: center; color: var(--muted); padding: 20px;">No notes yet</div>';
+          return;
+        }
+        
+        let html = '';
+        notes.forEach(note => {
+          const tags = note.tags ? note.tags.split(',').map(t => `<span style="display: inline-block; background: rgba(91, 163, 178, 0.2); padding: 2px 6px; border-radius: 4px; margin-right: 4px; font-size: 0.75rem;">${esc(t.trim())}</span>`).join('') : '';
+          html += `
+            <div style="padding: 12px; background: var(--line); border-radius: 8px; border-left: 4px solid var(--${note.verdict === 'malicious' ? 'danger' : note.verdict === 'suspicious' ? 'warn' : 'ok'});">
+              <div style="display: flex; justify-content: space-between; align-items: start; margin-bottom: 8px;">
+                <div style="font-weight: 500; color: var(--text);">${esc(note.content.substring(0, 50))}${note.content.length > 50 ? '...' : ''}</div>
+                ${note.verdict ? `<span style="background: rgba(91, 163, 178, 0.1); color: var(--accent); padding: 2px 8px; border-radius: 4px; font-size: 0.75rem; font-weight: 600;">${note.verdict.toUpperCase()}</span>` : ''}
+              </div>
+              ${tags ? `<div style="margin-bottom: 6px;">${tags}</div>` : ''}
+              <div style="font-size: 0.75rem; color: var(--muted);">${new Date(note.created_at).toLocaleString()}</div>
+            </div>
+          `;
+        });
+        notesList.innerHTML = html;
+      } catch (err) {
+        console.error('Error loading notes:', err);
+      }
+    }
+
+    async function loadWorkLog(caseId) {
+      try {
+        // For now, work log is shown as detailed notes. In a full implementation, 
+        // you'd have a separate API endpoint for work log entries
+        const workLogList = document.getElementById('workLogList');
+        workLogList.innerHTML = '<div style="text-align: center; color: var(--muted); padding: 20px;">No work entries yet</div>';
+      } catch (err) {
+        console.error('Error loading work log:', err);
+      }
+    }
+
+    async function addNote() {
+      const content = document.getElementById('newNote').value.trim();
+      const verdict = document.getElementById('noteVerdict').value;
+      const tags = document.getElementById('noteTags').value;
+      
+      if (!content) {
+        alert('Please enter a note');
+        return;
+      }
+      
+      try {
+        const resp = await fetch(`/api/v2/cases/${currentCaseId}/notes`, {
+          method: 'POST',
+          headers: { ...headers, 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            content: content,
+            verdict: verdict || null,
+            tags: tags,
+          }),
+        });
+        
+        if (resp.ok) {
+          document.getElementById('newNote').value = '';
+          document.getElementById('noteVerdict').value = '';
+          document.getElementById('noteTags').value = '';
+          await loadCaseNotes(currentCaseId);
+        } else {
+          alert('Error adding note');
+        }
+      } catch (err) {
+        alert('Error: ' + err.message);
+      }
+    }
+
+    async function addWorkEntry() {
+      const entry = document.getElementById('workEntry').value.trim();
+      
+      if (!entry) {
+        alert('Please enter a work entry');
+        return;
+      }
+      
+      try {
+        // Work entries are stored as notes with a work tag
+        const resp = await fetch(`/api/v2/cases/${currentCaseId}/notes`, {
+          method: 'POST',
+          headers: { ...headers, 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            content: entry,
+            tags: 'work',
+          }),
+        });
+        
+        if (resp.ok) {
+          document.getElementById('workEntry').value = '';
+          await loadWorkLog(currentCaseId);
+        } else {
+          alert('Error adding work entry');
+        }
+      } catch (err) {
+        alert('Error: ' + err.message);
+      }
+    }
+
+    async function saveCaseDetails() {
+      try {
+        const data = {
+          description: document.getElementById('detailsDesc').value,
+          status: document.getElementById('detailsStatus').value,
+          severity: document.getElementById('detailsSeverity').value,
+        };
+        
+        const resp = await fetch(`/api/v2/cases/${currentCaseId}`, {
+          method: 'PUT',
+          headers: { ...headers, 'Content-Type': 'application/json' },
+          body: JSON.stringify(data),
+        });
+        
+        if (resp.ok) {
+          alert('Case updated successfully!');
+          closeCaseDetails();
+          loadCases();
+        } else {
+          alert('Error saving case');
+        }
+      } catch (err) {
+        alert('Error: ' + err.message);
+      }
+    }
+
+    function closeCaseDetails() {
+      document.getElementById('caseDetailsModal').classList.remove('active');
+      currentCaseId = null;
+    }
+
+    // Load cases on page load
+    loadCases();
+  </script>
+</body>
+</html>

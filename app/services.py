@@ -144,6 +144,35 @@ class WhoisFreakService:
     def _save_and_return(self, target: str, query_type: str, data: dict, user, rate_limit=None, site_user_id=None, source=None):
         lookup_record = None
         try:
+            # Check if a lookup already exists for this target/user
+            existing = LookupHistory.query.filter_by(
+                user_id=user.id,
+                site_user_id=site_user_id,
+                ip_address=target
+            ).order_by(LookupHistory.created_at.desc()).first()
+            
+            # Compare new result with existing result
+            if existing:
+                existing_data = existing.get_result_dict()
+                # Simple comparison: if JSON is identical, don't save
+                if json.dumps(data, sort_keys=True) == json.dumps(existing_data.get('data', {}), sort_keys=True):
+                    lookup_record = existing
+                    logger.info(f"Skipped duplicate {query_type} lookup for '{target}' — identical result (user {user.id})")
+                    return (
+                        {
+                            "target": html.escape(target, quote=True),
+                            "type": query_type,
+                            "data": data,
+                            "timestamp": datetime.utcnow().isoformat(),
+                            "lookup_id": lookup_record.id,
+                            "rate_limit": rate_limit,
+                            "source": source,
+                            "duplicate": True,
+                        },
+                        200,
+                    )
+            
+            # Create new lookup record (different or first-time lookup)
             lookup_record = LookupHistory(
                 user_id=user.id,
                 site_user_id=site_user_id,
@@ -171,10 +200,10 @@ class WhoisFreakService:
             200,
         )
 
-    # ── Fallback Services (IP-API + DNS) ──────────────────────────────────────
+    # ── Fallback Services (IP-API + DENIC RDAP + DNS) ───────────────────────────
 
     def _lookup_fallback(self, target: str, user, site_user_id=None):
-        """Use free fallback services: IP-API for IPs, DNS for domains."""
+        """Use free fallback services: IP-API for IPs, DENIC RDAP + DNS for domains."""
         logger.info(f"Fallback services lookup: {target}")
         
         if self.is_ip(target):
@@ -182,11 +211,22 @@ class WhoisFreakService:
             ip_api_service = IPAPIService()
             data = ip_api_service.lookup(target)
             query_type = "ip"
+            source = "IP-API"
         elif self.is_domain(target):
-            # Use DNS service for domain lookups
-            dns_service = DNSService()
-            data = dns_service.lookup(target)
+            # Try DENIC RDAP first for domain registration data
+            rdap_service = RdapDenicService()
+            data = rdap_service.lookup(target)
             query_type = "domain"
+            source = "DENIC-RDAP"
+            
+            # If RDAP has an error, supplement with DNS records
+            if "error" in data:
+                logger.info(f"DENIC RDAP failed for {target}, falling back to DNS")
+                dns_service = DNSService()
+                dns_data = dns_service.lookup(target)
+                # Merge DNS data with RDAP error
+                data["dns_records"] = dns_data
+                source = "DENIC-RDAP-fallback-DNS"
         else:
             return (
                 {
@@ -197,10 +237,6 @@ class WhoisFreakService:
             )
         
         # Save and return with source tracking
-        if self.is_ip(target):
-            source = "IP-API"
-        else:
-            source = "DNS"
         return self._save_and_return(target, query_type, data, user, rate_limit=None, site_user_id=site_user_id, source=source)
 
 
@@ -492,6 +528,156 @@ class DNSService:
         return None
 
 
+class RdapDenicService:
+    """DENIC RDAP — Free RDAP protocol queries for domain registration data (primarily .de)."""
+    
+    RDAP_BASE_URL = "https://rdap.denic.de"
+    
+    def __init__(self):
+        self.timeout = 10
+    
+    def lookup(self, domain: str) -> dict:
+        """Query DENIC RDAP for domain registration data."""
+        try:
+            domain = domain.lower().replace('www.', '', 1)
+            logger.info(f"DENIC RDAP lookup: {domain}")
+            
+            # Query the RDAP endpoint for domain info
+            resp = requests.get(
+                f"{self.RDAP_BASE_URL}/domain/{domain}",
+                timeout=self.timeout,
+                headers={"User-Agent": "HAWK-LOOKOUT/2.0"}
+            )
+            
+            if resp.status_code == 404:
+                return {
+                    "error": "Domain not found",
+                    "message": f"No RDAP data available for {domain}"
+                }
+            
+            if resp.status_code != 200:
+                logger.warning(f"DENIC RDAP error {resp.status_code} for {domain}")
+                return {
+                    "error": f"RDAP error (HTTP {resp.status_code})",
+                    "message": "Could not retrieve RDAP data"
+                }
+            
+            data = resp.json()
+            return self._parse_rdap_response(data, domain)
+            
+        except requests.exceptions.Timeout:
+            logger.warning(f"DENIC RDAP timeout for {domain}")
+            return {"error": "Request timed out", "message": "RDAP service did not respond in time"}
+        except requests.exceptions.ConnectionError:
+            logger.warning(f"DENIC RDAP connection error for {domain}")
+            return {"error": "Connection failed", "message": "Could not connect to RDAP service"}
+        except Exception as e:
+            logger.debug(f"DENIC RDAP lookup failed for {domain}: {e}")
+            return {"error": "RDAP lookup failed", "message": str(e)}
+    
+    @staticmethod
+    def _parse_rdap_response(data: dict, domain: str) -> dict:
+        """Parse RDAP JSON response into structured format."""
+        result = {
+            "domain": domain,
+            "rdap_source": "DENIC",
+        }
+        
+        # Basic domain info
+        if "handle" in data:
+            result["handle"] = data["handle"]
+        if "status" in data:
+            result["status"] = data["status"]
+        if "ldhName" in data:
+            result["ldh_name"] = data["ldhName"]
+        
+        # Dates
+        if "events" in data:
+            for event in data["events"]:
+                event_action = event.get("eventAction", "").lower()
+                event_date = event.get("eventDate")
+                if event_action == "registration" and event_date:
+                    result["registration_date"] = event_date
+                elif event_action == "expiration" and event_date:
+                    result["expiration_date"] = event_date
+                elif event_action == "last changed" and event_date:
+                    result["last_changed"] = event_date
+        
+        # Nameservers
+        if "nameservers" in data:
+            result["nameservers"] = []
+            for ns in data["nameservers"]:
+                ns_info = {}
+                if "ldhName" in ns:
+                    ns_info["name"] = ns["ldhName"]
+                if "ipAddresses" in ns:
+                    v4 = ns["ipAddresses"].get("v4", [])
+                    v6 = ns["ipAddresses"].get("v6", [])
+                    if v4:
+                        ns_info["ipv4"] = v4
+                    if v6:
+                        ns_info["ipv6"] = v6
+                if ns_info:
+                    result["nameservers"].append(ns_info)
+        
+        # Entities (registrar, registrant, etc.)
+        if "entities" in data:
+            result["entities"] = []
+            for entity in data["entities"]:
+                entity_info = {}
+                if "handle" in entity:
+                    entity_info["handle"] = entity["handle"]
+                if "roles" in entity:
+                    entity_info["roles"] = entity["roles"]
+                if "vcardArray" in entity:
+                    # Parse vCard (simplified)
+                    vcard = entity["vcardArray"]
+                    if isinstance(vcard, list) and len(vcard) > 1:
+                        vcard_data = vcard[1]
+                        entity_info["contact"] = RdapDenicService._parse_vcard(vcard_data)
+                if entity_info:
+                    result["entities"].append(entity_info)
+        
+        # Links to related resources
+        if "links" in data:
+            result["links"] = [
+                {
+                    "rel": link.get("rel"),
+                    "href": link.get("href"),
+                    "type": link.get("type")
+                }
+                for link in data.get("links", [])
+            ]
+        
+        return result
+    
+    @staticmethod
+    def _parse_vcard(vcard_data: list) -> dict:
+        """Parse basic vCard format used in RDAP responses."""
+        vcard = {}
+        if not isinstance(vcard_data, list):
+            return vcard
+        
+        for item in vcard_data:
+            if isinstance(item, list) and len(item) >= 2:
+                field_name = item[0]
+                # Skip index/type info, get the actual value
+                value = item[-1]  # Last element is typically the value
+                
+                if field_name == "fn":
+                    vcard["name"] = value
+                elif field_name == "org":
+                    vcard["organization"] = value if isinstance(value, str) else value[0] if isinstance(value, list) else None
+                elif field_name == "adr":
+                    vcard["address"] = value
+                elif field_name == "tel":
+                    vcard["telephone"] = value
+                elif field_name == "email":
+                    vcard["email"] = value
+        
+        return vcard
+
+
 class BlacklistService:
     """DNSBL lookups + dynamic ClickFix domain/IP check + URLhaus host query."""
 
@@ -708,3 +894,178 @@ class BlacklistService:
             'clickfix': clickfix_hit,
             'urlhaus': urlhaus_result,
         }
+
+
+class GoogleSafeBrowsingService:
+    """Google Safe Browsing API — Check URLs for malware, phishing, and unwanted software."""
+    
+    API_URL = "https://safebrowsing.googleapis.com/v4/threatMatches:find"
+    
+    def __init__(self):
+        self.timeout = 10
+    
+    def _get_api_key(self) -> str:
+        """Read Google Safe Browsing API key from the database (set via Settings page)."""
+        from .models import User
+        user = User.query.first()
+        if user and user.google_safe_browsing_api_key:
+            return user.google_safe_browsing_api_key
+        return Config.GOOGLE_SAFE_BROWSING_API_KEY
+    
+    def check(self, target: str) -> dict:
+        """
+        Check a URL/domain against Google Safe Browsing threat lists.
+        
+        Returns a dict with detected threats across multiple threat types:
+        - MALWARE: Malicious software
+        - SOCIAL_ENGINEERING: Phishing, social engineering
+        - UNWANTED_SOFTWARE: PUPs, adware, etc.
+        - POTENTIALLY_HARMFUL_APPLICATION: Potentially harmful apps
+        """
+        api_key = self._get_api_key()
+        if not api_key:
+            logger.debug("Google Safe Browsing API key not configured")
+            return {
+                "target": target,
+                "status": "not_configured",
+                "message": "Google Safe Browsing API key not configured",
+            }
+        
+        # Normalize URL format
+        if not target.startswith(('http://', 'https://')):
+            target_url = f"https://{target}"
+        else:
+            target_url = target
+        
+        try:
+            logger.info(f"Google Safe Browsing check: {target}")
+            
+            payload = {
+                "client": {
+                    "clientId": "HAWK-LOOKOUT",
+                    "clientVersion": "2.1.0"
+                },
+                "threatInfo": {
+                    "threatTypes": [
+                        "MALWARE",
+                        "SOCIAL_ENGINEERING",
+                        "UNWANTED_SOFTWARE",
+                        "POTENTIALLY_HARMFUL_APPLICATION"
+                    ],
+                    "platformTypes": [
+                        "ANY_PLATFORM"
+                    ],
+                    "threatEntryTypes": [
+                        "URL"
+                    ],
+                    "threatEntries": [
+                        {"url": target_url}
+                    ]
+                }
+            }
+            
+            resp = requests.post(
+                f"{self.API_URL}?key={api_key}",
+                json=payload,
+                timeout=self.timeout,
+                headers={"Content-Type": "application/json"}
+            )
+            
+            if resp.status_code == 400:
+                logger.warning(f"Google Safe Browsing error 400 (bad request): {target}")
+                return {
+                    "target": target,
+                    "status": "error",
+                    "message": "Invalid request format"
+                }
+            
+            if resp.status_code == 401:
+                logger.warning(f"Google Safe Browsing error 401 (unauthorized): Invalid API key")
+                return {
+                    "target": target,
+                    "status": "error",
+                    "message": "Unauthorized - Invalid API key"
+                }
+            
+            if resp.status_code == 403:
+                logger.warning(f"Google Safe Browsing error 403 (quota exceeded)")
+                return {
+                    "target": target,
+                    "status": "error",
+                    "message": "Quota exceeded - API rate limited"
+                }
+            
+            if resp.status_code != 200:
+                logger.error(f"Google Safe Browsing error {resp.status_code}: {resp.text[:200]}")
+                return {
+                    "target": target,
+                    "status": "error",
+                    "message": f"API error (HTTP {resp.status_code})"
+                }
+            
+            data = resp.json()
+            
+            # If no matches, the response is empty or has no 'matches' key
+            if not data.get("matches"):
+                return {
+                    "target": target,
+                    "status": "clean",
+                    "message": "No threats detected",
+                    "threats": []
+                }
+            
+            # Parse detected threats
+            threats = []
+            for match in data.get("matches", []):
+                threat = {
+                    "threat_type": match.get("threatType", "UNKNOWN"),
+                    "platform_type": match.get("platformType", "UNKNOWN"),
+                    "threat_entry_type": match.get("threatEntryType", "UNKNOWN"),
+                    "threat_entry_metadata": match.get("threatEntryMetadata", {}),
+                }
+                threats.append(threat)
+            
+            return {
+                "target": target,
+                "status": "malicious",
+                "message": f"Detected {len(threats)} threat type(s)",
+                "threats": threats,
+                "threat_summary": self._summarize_threats(threats),
+            }
+            
+        except requests.exceptions.Timeout:
+            logger.warning(f"Google Safe Browsing timeout for {target}")
+            return {
+                "target": target,
+                "status": "error",
+                "message": "Request timed out"
+            }
+        except requests.exceptions.ConnectionError:
+            logger.warning(f"Google Safe Browsing connection error for {target}")
+            return {
+                "target": target,
+                "status": "error",
+                "message": "Could not connect to Google Safe Browsing API"
+            }
+        except Exception as e:
+            logger.debug(f"Google Safe Browsing check failed for {target}: {e}")
+            return {
+                "target": target,
+                "status": "error",
+                "message": f"Check failed: {str(e)}"
+            }
+    
+    @staticmethod
+    def _summarize_threats(threats: list) -> dict:
+        """Summarize threat types detected."""
+        summary = {
+            "MALWARE": 0,
+            "SOCIAL_ENGINEERING": 0,
+            "UNWANTED_SOFTWARE": 0,
+            "POTENTIALLY_HARMFUL_APPLICATION": 0,
+        }
+        for threat in threats:
+            threat_type = threat.get("threat_type", "UNKNOWN")
+            if threat_type in summary:
+                summary[threat_type] += 1
+        return {k: v for k, v in summary.items() if v > 0}

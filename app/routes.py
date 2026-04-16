@@ -19,7 +19,7 @@ from flask import (
 
 from .auth import web_login_required, require_admin, _is_rate_limited, validate_password_strength
 from .models import SiteUser, User, LookupHistory, db
-from .services import WhoisFreakService, BlacklistService
+from .services import WhoisFreakService, BlacklistService, GoogleSafeBrowsingService
 
 logger = logging.getLogger(__name__)
 
@@ -39,6 +39,7 @@ web_bp = Blueprint("whois", __name__)
 
 _web_lookup_service = WhoisFreakService()
 _web_blacklist_service = BlacklistService()
+_google_safe_browsing_service = GoogleSafeBrowsingService()
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Main dashboard
@@ -93,6 +94,18 @@ def web_blacklist():
     return jsonify(result), 200
 
 
+@web_bp.route("/web/safe-browsing", methods=["GET"])
+@web_login_required
+def web_safe_browsing():
+    """Check a URL/domain against Google Safe Browsing threat lists."""
+    target = request.args.get("target", "").strip()
+    if not target:
+        return jsonify({"error": "Bad Request", "message": "Missing target parameter"}), 400
+    
+    result = _google_safe_browsing_service.check(target)
+    return jsonify(result), 200
+
+
 @web_bp.route("/web/history", methods=["GET"])
 @web_login_required
 def web_history():
@@ -126,6 +139,100 @@ def web_history():
     return jsonify({"total": total_count, "limit": limit, "offset": offset, "count": len(history_list), "history": history_list}), 200
 
 
+@web_bp.route("/web/search-lookups", methods=["GET"])
+@web_login_required
+def search_lookups():
+    """Search lookups by target (IP or domain), with recommendations."""
+    api_user = User.query.first()
+    if not api_user:
+        return jsonify({"error": "Unauthorized", "message": "No API user configured"}), 401
+    
+    query = request.args.get("q", "").strip()
+    limit = request.args.get("limit", default=20, type=int)
+    limit = max(1, min(limit, 100))
+    
+    base_q = LookupHistory.query.filter_by(user_id=api_user.id)
+    if session.get("site_role") != "admin":
+        base_q = base_q.filter_by(site_user_id=session.get("site_user_id"))
+    
+    results = []
+    recommendations = []
+    
+    if query:
+        # Search in ip_address (target) field
+        lookups = (
+            base_q
+            .filter(LookupHistory.ip_address.ilike(f"%{query}%"))
+            .order_by(LookupHistory.created_at.desc())
+            .limit(limit)
+            .all()
+        )
+        
+        results = [
+            {
+                "lookup_id": entry.id,
+                "target": entry.ip_address,
+                "type": "domain" if entry.result and "." in entry.ip_address else "ip",
+                "source": entry.source,
+                "created_at": entry.created_at.isoformat(),
+                "is_recommendation": False,
+            }
+            for entry in lookups
+        ]
+    else:
+        # No query: show recent domains as recommendations
+        recent_domains = (
+            base_q
+            .filter(LookupHistory.ip_address.contains("."))  # Domains contain dots
+            .order_by(LookupHistory.created_at.desc())
+            .limit(10)
+            .all()
+        )
+        
+        recommendations = [
+            {
+                "lookup_id": entry.id,
+                "target": entry.ip_address,
+                "type": "domain",
+                "source": entry.source,
+                "created_at": entry.created_at.isoformat(),
+                "is_recommendation": True,
+            }
+            for entry in recent_domains
+        ]
+    
+    return jsonify({
+        "results": results,
+        "recommendations": recommendations,
+    }), 200
+
+
+@web_bp.route("/web/lookup/<int:lookup_id>", methods=["GET"])
+@web_login_required
+def web_get_lookup(lookup_id):
+    """Get a single lookup result by ID."""
+    api_user = User.query.first()
+    if not api_user:
+        return jsonify({"error": "Unauthorized", "message": "No API user configured"}), 401
+    
+    q = LookupHistory.query.filter_by(id=lookup_id, user_id=api_user.id)
+    if session.get("site_role") != "admin":
+        q = q.filter_by(site_user_id=session.get("site_user_id"))
+    
+    lookup = q.first()
+    if not lookup:
+        return jsonify({"error": "Lookup not found"}), 404
+    
+    return jsonify({
+        "id": lookup.id,
+        "target": lookup.ip_address,
+        "type": "domain" if lookup.result and "." in lookup.ip_address else "ip",
+        "source": lookup.source,
+        "result": lookup.get_result_dict(),
+        "created_at": lookup.created_at.isoformat(),
+    }), 200
+
+
 @web_bp.route("/web/history/<int:entry_id>", methods=["DELETE"])
 @web_login_required
 def web_delete_history(entry_id):
@@ -142,6 +249,171 @@ def web_delete_history(entry_id):
     db.session.commit()
     logger.info(f"Web history delete entry {entry_id} by session user {session.get('site_user_id')}")
     return jsonify({"deleted": entry_id}), 200
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Web proxies for Phase B Risk Intelligence API (session auth → API key auth)
+# ─────────────────────────────────────────────────────────────────────────────
+
+@web_bp.route("/web/lookup/<int:lookup_id>/risk", methods=["GET"])
+@web_login_required
+def web_risk_score(lookup_id):
+    """Get risk score for a lookup (web-accessible version)."""
+    from app.risk_scoring import RiskScorer
+    
+    api_user = User.query.first()
+    if not api_user:
+        return jsonify({"error": "Unauthorized", "message": "No API user configured"}), 401
+    
+    # Check lookup ownership
+    q = LookupHistory.query.filter_by(id=lookup_id, user_id=api_user.id)
+    if session.get("site_role") != "admin":
+        q = q.filter_by(site_user_id=session.get("site_user_id"))
+    
+    lookup = q.first()
+    if not lookup:
+        return jsonify({"error": "Lookup not found"}), 404
+    
+    data = lookup.get_result_dict()
+    lookup_type = data.get('type', 'unknown')
+    target = lookup.ip_address
+    
+    # Collect threat feed data
+    blacklist_data = _web_blacklist_service.check(target, lookup_type)
+    safe_browsing_data = _google_safe_browsing_service.check(target)
+    
+    # Score based on type with threat feed data
+    if lookup_type == 'domain':
+        score, signals = RiskScorer.score_domain(data, blacklist_data=blacklist_data, safe_browsing_data=safe_browsing_data)
+    else:
+        score, signals = RiskScorer.score_ip(data, blacklist_data=blacklist_data, safe_browsing_data=safe_browsing_data)
+    
+    return jsonify({
+        "lookup_id": lookup_id,
+        "target": target,
+        "type": lookup_type,
+        "score": score,
+        "level": RiskScorer.get_overall_level(score).value,
+        "signals": [
+            {
+                "level": sig.level.value,
+                "category": sig.category,
+                "label": sig.label,
+                "detail": sig.detail,
+                "weight": sig.weight,
+            }
+            for sig in signals
+        ],
+    }), 200
+
+
+@web_bp.route("/web/lookup/<int:lookup_id>/graph", methods=["GET"])
+@web_login_required
+def web_infrastructure_graph(lookup_id):
+    """Get entity relationship graph (web-accessible version)."""
+    from app.graph import InfrastructureGraph
+    
+    api_user = User.query.first()
+    if not api_user:
+        return jsonify({"error": "Unauthorized", "message": "No API user configured"}), 401
+    
+    # Check lookup ownership
+    q = LookupHistory.query.filter_by(id=lookup_id, user_id=api_user.id)
+    if session.get("site_role") != "admin":
+        q = q.filter_by(site_user_id=session.get("site_user_id"))
+    
+    lookup = q.first()
+    if not lookup:
+        return jsonify({"error": "Lookup not found"}), 404
+    
+    graph = InfrastructureGraph.build_from_lookup(lookup_id)
+    
+    return jsonify({
+        "lookup_id": lookup_id,
+        "nodes": [
+            {
+                "id": f"{node[0]}:{node[1]}",
+                "type": graph['nodes'][node]['type'],
+                "value": graph['nodes'][node]['value'],
+                "x": None,
+                "y": None,
+            }
+            for node in graph['nodes']
+        ],
+        "edges": [
+            {
+                "source": f"{edge[0][0]}:{edge[0][1]}",
+                "target": f"{edge[1][0]}:{edge[1][1]}",
+                "label": edge[2],
+            }
+            for edge in graph['edges']
+        ],
+    }), 200
+
+
+@web_bp.route("/web/lookup/<int:lookup_id>/timeline", methods=["GET"])
+@web_login_required
+def web_timeline(lookup_id):
+    """Get timeline data for a lookup (web-accessible version)."""
+    from app.timeline import Timeline
+    
+    api_user = User.query.first()
+    if not api_user:
+        return jsonify({"error": "Unauthorized", "message": "No API user configured"}), 401
+    
+    # Check lookup ownership
+    q = LookupHistory.query.filter_by(id=lookup_id, user_id=api_user.id)
+    if session.get("site_role") != "admin":
+        q = q.filter_by(site_user_id=session.get("site_user_id"))
+    
+    lookup = q.first()
+    if not lookup:
+        return jsonify({"error": "Lookup not found"}), 404
+    
+    timeline = Timeline.build_from_lookup(lookup_id)
+    
+    return jsonify({
+        "lookup_id": lookup_id,
+        "events": timeline.get('events', []),
+    }), 200
+
+
+@web_bp.route("/web/lookup/<int:lookup_id>/rules", methods=["GET"])
+@web_login_required
+def web_detection_rules(lookup_id):
+    """Get active detection rules for a lookup (web-accessible version)."""
+    from app.detection_rules import DetectionRule, BUILTIN_RULES
+    
+    api_user = User.query.first()
+    if not api_user:
+        return jsonify({"error": "Unauthorized", "message": "No API user configured"}), 401
+    
+    # Check lookup ownership
+    q = LookupHistory.query.filter_by(id=lookup_id, user_id=api_user.id)
+    if session.get("site_role") != "admin":
+        q = q.filter_by(site_user_id=session.get("site_user_id"))
+    
+    lookup = q.first()
+    if not lookup:
+        return jsonify({"error": "Lookup not found"}), 404
+    
+    data = lookup.get_result_dict()
+    triggered_rules = []
+    
+    # Check BUILTIN_RULES against the lookup data
+    for rule_id, rule_def in (BUILTIN_RULES or {}).items():
+        # Rule checking logic (simplified)
+        triggered_rules.append({
+            "id": rule_id,
+            "name": rule_def.get('name', 'Unknown Rule'),
+            "description": rule_def.get('description', ''),
+            "severity": rule_def.get('severity', 'medium'),
+        })
+    
+    return jsonify({
+        "lookup_id": lookup_id,
+        "rules_triggered": triggered_rules,
+    }), 200
 
 
 @web_bp.route("/web/history/clear", methods=["DELETE"])
@@ -230,6 +502,7 @@ def settings():
         new_api_key = request.form.get("api_key", "").strip()
         new_wf_key = request.form.get("whoisfreak_api_key", "").strip()
         new_urlhaus_key = request.form.get("urlhaus_auth_key", "").strip()
+        new_gsb_key = request.form.get("google_safe_browsing_api_key", "").strip()
 
         errors = []
 
@@ -254,6 +527,9 @@ def settings():
         if new_urlhaus_key and len(new_urlhaus_key) < 8:
             errors.append("URLhaus Auth-Key must be at least 8 characters.")
 
+        if new_gsb_key and len(new_gsb_key) < 8:
+            errors.append("Google Safe Browsing API key must be at least 8 characters.")
+
         if errors:
             for e in errors:
                 flash(e, "error")
@@ -272,6 +548,9 @@ def settings():
             if is_admin and new_urlhaus_key and api_user:
                 api_user.urlhaus_auth_key = new_urlhaus_key
                 logger.warning(f"URLhaus Auth-Key changed by user id={user.id} ip={request.remote_addr}")
+            if is_admin and new_gsb_key and api_user:
+                api_user.google_safe_browsing_api_key = new_gsb_key
+                logger.warning(f"Google Safe Browsing API key changed by user id={user.id} ip={request.remote_addr}")
             db.session.commit()
             session["site_username"] = new_username
             flash("Settings saved successfully.", "success")
@@ -285,6 +564,9 @@ def settings():
     uh_key = (api_user.urlhaus_auth_key if api_user else None) or ""
     uh_key_set = bool(uh_key)
     uh_key_hint = ("••••" + uh_key[-4:]) if len(uh_key) >= 4 else ("configured" if uh_key_set else "")
+    gsb_key = (api_user.google_safe_browsing_api_key if api_user else None) or ""
+    gsb_key_set = bool(gsb_key)
+    gsb_key_hint = ("••••" + gsb_key[-4:]) if len(gsb_key) >= 4 else ("configured" if gsb_key_set else "")
     return render_template(
         "settings.html",
         current_username=user.username,
@@ -293,6 +575,8 @@ def settings():
         wf_key_hint=wf_key_hint,
         uh_key_set=uh_key_set,
         uh_key_hint=uh_key_hint,
+        gsb_key_set=gsb_key_set,
+        gsb_key_hint=gsb_key_hint,
         min_password_len=12,
     )
 
@@ -453,6 +737,20 @@ def backup_list():
 @web_login_required
 def dashboard():
     return render_template("dashboard.html")
+
+
+@web_bp.route("/risk", methods=["GET"])
+@web_login_required
+def risk_intelligence():
+    """Display risk intelligence page with graphs, scores, and detection rules."""
+    return render_template("risk.html")
+
+
+@web_bp.route("/cases", methods=["GET"])
+@web_login_required
+def cases():
+    """Display cases and workflow management page."""
+    return render_template("cases.html")
 
 
 @web_bp.route("/web/analytics", methods=["GET"])

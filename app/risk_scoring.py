@@ -49,9 +49,15 @@ class RiskScorer:
     }
     
     @staticmethod
-    def score_domain(domain_data: dict, historical_data: dict = None) -> Tuple[float, List[RiskSignal]]:
+    def score_domain(domain_data: dict, blacklist_data: dict = None, safe_browsing_data: dict = None, historical_data: dict = None) -> Tuple[float, List[RiskSignal]]:
         """
-        Score domain lookup result.
+        Score domain lookup result, incorporating threat feeds.
+        
+        Args:
+            domain_data: WHOIS lookup result
+            blacklist_data: Results from BlacklistService.check()
+            safe_browsing_data: Results from GoogleSafeBrowsingService.check()
+            historical_data: Historical context
         
         Returns:
             (score 0-100, [RiskSignal list])
@@ -110,13 +116,71 @@ class RiskScorer:
                     f'Expires in {days_until} days', 0.8
                 ))
         
+        # ──────────────────────────────────────────────────────────────────
+        # THREAT FEED ANALYSIS
+        # ──────────────────────────────────────────────────────────────────
+        
+        # Spamhaus DBL blacklist check (domain-based)
+        if blacklist_data:
+            dnsbl_data = blacklist_data.get('dnsbl', [])
+            for bl_entry in dnsbl_data:
+                if bl_entry.get('listed'):
+                    signals.append(RiskSignal(
+                        RiskLevel.CRITICAL, 'reputation', f'🚫 {bl_entry.get("list", "DNSBL")}',
+                        f'Domain listed in {bl_entry.get("list")} — likely spam/malware', 3.0
+                    ))
+            
+            # ClickFix threat feed check
+            if blacklist_data.get('clickfix'):
+                signals.append(RiskSignal(
+                    RiskLevel.CRITICAL, 'reputation', '🔴 ClickFix Threat Feed',
+                    'Domain flagged as known threat by ClickFix — Active malicious campaign', 3.5
+                ))
+            
+            # URLhaus malware hosting check
+            urlhaus = blacklist_data.get('urlhaus', {})
+            if urlhaus.get('status') == 'found':
+                url_count = urlhaus.get('url_count', 0)
+                tags = urlhaus.get('tags', [])
+                tag_str = ', '.join(tags) if tags else 'malware distribution'
+                signals.append(RiskSignal(
+                    RiskLevel.CRITICAL, 'reputation', f'⚠️ URLhaus (Malware Host)',
+                    f'Hosting {url_count} malicious URLs ({tag_str})', 3.5
+                ))
+        
+        # Google Safe Browsing check
+        if safe_browsing_data:
+            threat_types = safe_browsing_data.get('threats', [])
+            if threat_types:
+                # Map threat types to risk levels
+                threat_map = {
+                    'MALWARE': (RiskLevel.CRITICAL, 'Contains malware', 3.0),
+                    'SOCIAL_ENGINEERING': (RiskLevel.CRITICAL, 'Phishing/social engineering site', 2.8),
+                    'UNWANTED_SOFTWARE': (RiskLevel.HIGH, 'Distributes unwanted software (PUP/adware)', 2.0),
+                    'POTENTIALLY_HARMFUL_APPLICATION': (RiskLevel.HIGH, 'Hosts potentially harmful apps', 1.8),
+                }
+                
+                for threat in threat_types:
+                    if threat in threat_map:
+                        level, detail, weight = threat_map[threat]
+                        signals.append(RiskSignal(
+                            level, 'reputation', f'🦠 Google Safe Browsing: {threat}',
+                            detail, weight
+                        ))
+        
         score = RiskScorer._compute_score(signals)
         return score, signals
     
     @staticmethod
-    def score_ip(ip_data: dict, historical_data: dict = None) -> Tuple[float, List[RiskSignal]]:
+    def score_ip(ip_data: dict, blacklist_data: dict = None, safe_browsing_data: dict = None, historical_data: dict = None) -> Tuple[float, List[RiskSignal]]:
         """
-        Score IP lookup result.
+        Score IP lookup result, incorporating threat feeds.
+        
+        Args:
+            ip_data: IP lookup result
+            blacklist_data: Results from BlacklistService.check()
+            safe_browsing_data: Results from GoogleSafeBrowsingService.check()
+            historical_data: Historical context
         
         Returns:
             (score 0-100, [RiskSignal list])
@@ -167,29 +231,147 @@ class RiskScorer:
                     0.1
                 ))
         
+        # ──────────────────────────────────────────────────────────────────
+        # THREAT FEED ANALYSIS
+        # ──────────────────────────────────────────────────────────────────
+        
+        # Spamhaus ZEN blacklist check (IP-based)
+        if blacklist_data:
+            dnsbl_data = blacklist_data.get('dnsbl', [])
+            for bl_entry in dnsbl_data:
+                if bl_entry.get('listed'):
+                    signals.append(RiskSignal(
+                        RiskLevel.CRITICAL, 'reputation', f'🚫 {bl_entry.get("list", "DNSBL")}',
+                        f'IP listed in {bl_entry.get("list")} — spam/botnet indicator', 3.0
+                    ))
+            
+            # ClickFix threat feed check
+            if blacklist_data.get('clickfix'):
+                signals.append(RiskSignal(
+                    RiskLevel.CRITICAL, 'reputation', '🔴 ClickFix Threat Feed',
+                    'IP flagged as known threat by ClickFix', 2.5
+                ))
+            
+            # URLhaus malware hosting check
+            urlhaus = blacklist_data.get('urlhaus', {})
+            if urlhaus.get('status') == 'found':
+                url_count = urlhaus.get('url_count', 0)
+                tags = urlhaus.get('tags', [])
+                tag_str = ', '.join(tags) if tags else 'malware distribution'
+                signals.append(RiskSignal(
+                    RiskLevel.CRITICAL, 'reputation', f'⚠️ URLhaus (Malware Host)',
+                    f'Hosting {url_count} malicious URLs ({tag_str})', 3.5
+                ))
+        
+        # Google Safe Browsing check
+        if safe_browsing_data:
+            threat_types = safe_browsing_data.get('threats', [])
+            if threat_types:
+                threat_map = {
+                    'MALWARE': (RiskLevel.CRITICAL, 'Serves malware', 3.0),
+                    'SOCIAL_ENGINEERING': (RiskLevel.CRITICAL, 'Phishing/social engineering hosting', 2.8),
+                    'UNWANTED_SOFTWARE': (RiskLevel.HIGH, 'Distributes unwanted software (PUP/adware)', 2.0),
+                    'POTENTIALLY_HARMFUL_APPLICATION': (RiskLevel.HIGH, 'Hosts potentially harmful apps', 1.8),
+                }
+                
+                for threat in threat_types:
+                    if threat in threat_map:
+                        level, detail, weight = threat_map[threat]
+                        signals.append(RiskSignal(
+                            level, 'reputation', f'🦠 Google Safe Browsing: {threat}',
+                            detail, weight
+                        ))
+        
         score = RiskScorer._compute_score(signals)
         return score, signals
     
     @staticmethod
     def _compute_score(signals: List[RiskSignal]) -> float:
         """
-        Compute final risk score 0-100.
+        Compute final risk score 0-100 using component-based scoring.
         
-        Uses weighted sum normalized to 0-100 scale.
+        Each threat category contributes a specific maximum score:
+        - ClickFix Threat Feed: +80 points
+        - Google Safe Browsing (Malware/Phishing): +70 points
+        - URLhaus Malware Host: +65 points
+        - Spamhaus/DNSBL: +60 points
+        - Tor Exit Node: +55 points
+        - Hosting/Cloud (abused): +40 points
+        - New Domain (<7 days): +35 points
+        - Suspicious TLD: +20 points
+        - VPN/Proxy: +15 points
+        
+        Multiple threats accumulate, total capped at 100.
         """
         if not signals:
             return 0.0
         
-        total_weight = sum(
-            RiskScorer.LEVEL_WEIGHT[sig.level] * sig.weight
-            for sig in signals
-        )
+        # Component scoring system - each threat type max contribution
+        component_scores = {}
         
-        # Normalize: highest possible is all critical signals
-        max_possible = sum(RiskScorer.LEVEL_WEIGHT.values()) * 10  # Arbitrary high ceiling
-        score = min(100.0, (total_weight / max_possible) * 100)
+        # 1. ClickFix threat feed (highest priority) — 80 max
+        if any('ClickFix' in sig.label for sig in signals):
+            component_scores['clickfix'] = 80.0
         
-        return round(score, 1)
+        # 2. Google Safe Browsing threats — 70 max
+        gsb_score = 0.0
+        for sig in signals:
+            if 'Google Safe Browsing' in sig.label:
+                if 'MALWARE' in sig.label:
+                    gsb_score = 70.0  # Malware highest
+                elif 'SOCIAL_ENGINEERING' in sig.label or 'Phishing' in sig.label:
+                    gsb_score = max(gsb_score, 65.0)
+                elif 'UNWANTED_SOFTWARE' in sig.label:
+                    gsb_score = max(gsb_score, 50.0)
+        if gsb_score > 0:
+            component_scores['safe_browsing'] = gsb_score
+        
+        # 3. URLhaus malware hosting — 65 max
+        if any('URLhaus' in sig.label for sig in signals):
+            component_scores['urlhaus'] = 65.0
+        
+        # 4. Spamhaus/DNSBL — 60 max
+        if any('DNSBL' in sig.label or 'Spamhaus' in sig.label or 'SpamCop' in sig.label or 'SORBS' in sig.label 
+               for sig in signals):
+            component_scores['dnsbl'] = 60.0
+        
+        # 5. Tor exit node — 55 max
+        if any('TOR' in sig.label for sig in signals):
+            component_scores['tor'] = 55.0
+        
+        # 6. Hosting/Cloud provider abuse — 40 max
+        if any('HOSTING' in sig.label or 'CLOUD' in sig.label for sig in signals):
+            # Reduce if it's known legitimate cloud (AWS, Google, Azure) but still penalize
+            component_scores['hosting'] = 40.0
+        
+        # 7. Brand new domain (<7 days) — 35 max
+        if any('BRAND NEW' in sig.label for sig in signals):
+            component_scores['new_domain'] = 35.0
+        elif any('NEWLY REGISTERED' in sig.label for sig in signals):
+            component_scores['newly_registered'] = 20.0
+        
+        # 8. Suspicious TLD — 20 max
+        if any('SUSPICIOUS TLD' in sig.label for sig in signals):
+            component_scores['suspicious_tld'] = 20.0
+        
+        # 9. VPN/Proxy — 15 max
+        proxy_score = 0.0
+        if any('PROXY' in sig.label for sig in signals):
+            proxy_score = max(proxy_score, 15.0)
+        if any('VPN' in sig.label for sig in signals):
+            proxy_score = max(proxy_score, 10.0)
+        if proxy_score > 0:
+            component_scores['vpn_proxy'] = proxy_score
+        
+        # 10. Expiring soon — 10 max
+        if any('EXPIRING SOON' in sig.label for sig in signals):
+            component_scores['expiring'] = 10.0
+        
+        # Sum all components and cap at 100
+        total_score = sum(component_scores.values())
+        final_score = min(100.0, total_score)
+        
+        return round(final_score, 1)
     
     @staticmethod
     def get_overall_level(score: float) -> RiskLevel:

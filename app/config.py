@@ -57,6 +57,9 @@ class Config:
     WHOISFREAK_IP_ENDPOINT = "https://api.whoisfreaks.com/v1.0/ip-whois"
     WHOISFREAK_DOMAIN_ENDPOINT = "https://api.whoisfreaks.com/v1.0/whois"
 
+    # Google Safe Browsing API for malware/phishing detection
+    GOOGLE_SAFE_BROWSING_API_KEY = os.getenv("GOOGLE_SAFE_BROWSING_API_KEY", "")
+
     JSON_SORT_KEYS = False
 
     # Session expires after 8 hours of inactivity

@@ -17,6 +17,8 @@ class User(db.Model):
     whoisfreak_api_key = db.Column(db.String(255), nullable=True)
     # URLhaus (abuse.ch) Auth-Key — managed via Settings, never exposed to the browser
     urlhaus_auth_key = db.Column(db.String(255), nullable=True)
+    # Google Safe Browsing API key — managed via Settings, never exposed to the browser
+    google_safe_browsing_api_key = db.Column(db.String(255), nullable=True)
     # Use free fallback services (IP-API, DNS) instead of WhoisFreak API
     prefer_fallback = db.Column(db.Boolean, default=False, nullable=False)
     created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)

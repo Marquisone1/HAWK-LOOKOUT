@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>HAWK-LOOKOUT Debug - History</title>
+    <style>
+        body { font-family: monospace; background: #1e1e1e; color: #e8e8e8; padding: 20px; }
+        .section { margin: 20px 0; padding: 15px; background: #2a2a2a; border-radius: 8px; }
+        h2 { color: #5ba3b2; }
+        button { padding: 10px 15px; background: #5ba3b2; color: white; border: none; border-radius: 4px; cursor: pointer; }
+        button:hover { opacity: 0.8; }
+        pre { background: #1a1a1a; padding: 10px; border-radius: 4px; overflow-x: auto; }
+        .error { color: #b8707a; }
+        .success { color: #6db87e; }
+    </style>
+</head>
+<body>
+    <h1>🔧 HAWK-LOOKOUT History Debugging</h1>
+    
+    <div class="section">
+        <h2>Step 1: Test /web/history endpoint</h2>
+        <button onclick="testHistoryEndpoint()">Test History Endpoint</button>
+        <pre id="history-result"></pre>
+    </div>
+
+    <div class="section">
+        <h2>Step 2: Test /web/search-lookups endpoint</h2>
+        <input type="text" id="search-query" placeholder="Enter domain or IP" style="padding: 8px; width: 300px;">
+        <button onclick="testSearchEndpoint()">Test Search</button>
+        <pre id="search-result"></pre>
+    </div>
+
+    <div class="section">
+        <h2>Step 3: Browser Console Check</h2>
+        <p>Open browser DevTools (F12) and check Console for errors.</p>
+        <p>Look for: "Loading history for target:", "History fetch response", "History HTML rendered"</p>
+    </div>
+
+    <div class="section">
+        <h2>Session Info</h2>
+        <pre id="session-info"></pre>
+    </div>
+
+    <script>
+        const CSRF = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || 'none';
+        const headers = { 'X-CSRFToken': CSRF, 'X-Requested-With': 'XMLHttpRequest' };
+
+        document.getElementById('session-info').innerHTML = `CSRF Token: ${CSRF ? CSRF.substring(0, 20) + '...' : 'NOT FOUND'}\nHeaders: ${JSON.stringify(headers, null, 2)}`;
+
+        async function testHistoryEndpoint() {
+            const result = document.getElementById('history-result');
+            result.innerHTML = '⏳ Loading...';
+            try {
+                const resp = await fetch('/web/history?limit=10', { headers });
+                const data = await resp.json();
+                result.innerHTML = `<span class="success">✓ Success (${resp.status})</span>\n\n${JSON.stringify(data, null, 2)}`;
+            } catch (err) {
+                result.innerHTML = `<span class="error">✗ Error: ${err.message}</span>`;
+            }
+        }
+
+        async function testSearchEndpoint() {
+            const result = document.getElementById('search-result');
+            const query = document.getElementById('search-query').value;
+            if (!query) {
+                result.innerHTML = '<span class="error">✗ Enter a search query first</span>';
+                return;
+            }
+            result.innerHTML = '⏳ Loading...';
+            try {
+                const resp = await fetch(`/web/search-lookups?q=${encodeURIComponent(query)}&limit=10`, { headers });
+                const data = await resp.json();
+                result.innerHTML = `<span class="success">✓ Success (${resp.status})</span>\n\n${JSON.stringify(data, null, 2)}`;
+            } catch (err) {
+                result.innerHTML = `<span class="error">✗ Error: ${err.message}</span>`;
+            }
+        }
+
+        // Show initial status
+        window.addEventListener('load', () => {
+            document.getElementById('session-info').innerHTML += '\n\nPage loaded successfully';
+        });
+    </script>
+</body>
+</html>

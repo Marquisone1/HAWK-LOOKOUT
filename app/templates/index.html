@@ -422,6 +422,8 @@
         <span class="nav-user">👤 {{ session.get('site_username', 'User') }}</span>
         <button id="themeBtn" class="nav-btn" style="padding:8px 14px;font-size:1.1rem;line-height:1;">🌙</button>
         <a href="/dashboard" class="nav-btn">📊 Dashboard</a>
+        <a href="/risk" class="nav-btn">⚠️ Risk</a>
+        <a href="/cases" class="nav-btn">📋 Cases</a>
         {% if session.get('site_role') == 'admin' %}
         <a href="/admin" class="nav-btn">👥 Users</a>
         {% endif %}
@@ -899,6 +901,7 @@
 
       resultEl.innerHTML = `
         <div id="bl-section"></div>
+        <div id="sb-section"></div>
         ${renderRiskBanner(signals)}
         <div class="meta">
           <span class="chip">Target: ${esc(payload.target)}</span>
@@ -951,6 +954,7 @@
         renderResult(payload);
         updateRateLimit(payload.rate_limit);
         checkBlacklist(payload.target, payload.type);
+        checkSafeBrowsing(payload.target);
       } catch (e) {
         setStatus("error", `Request failed: ${esc(e.message)}`);
       } finally {
@@ -1235,6 +1239,104 @@
             </div>
           </div>`;
       }
+      return html;
+    }
+
+    // ── Google Safe Browsing check ────────────────────────────────────────────
+    async function checkSafeBrowsing(target) {
+      const sbSection = document.getElementById("sb-section");
+      if (!sbSection) return;
+      sbSection.innerHTML = `<p style="color:var(--muted);font-size:0.82rem;margin:0 0 8px;">🛡️ Checking Google Safe Browsing…</p>`;
+      try {
+        const resp = await fetch(`/web/safe-browsing?target=${encodeURIComponent(target)}`, {
+          headers: { "X-CSRFToken": CSRF_TOKEN }
+        });
+        const sb = await resp.json();
+        console.log("Safe Browsing response:", sb);
+        if (!resp.ok) { 
+          sbSection.innerHTML = `
+            <div class="risk-banner risk-warn">
+              <span class="risk-icon">⚠️</span>
+              <div>
+                <div class="risk-label">SAFE BROWSING CHECK FAILED</div>
+                <div class="risk-detail">${esc(sb.message || "Could not check Google Safe Browsing")}</div>
+              </div>
+            </div>`;
+          return; 
+        }
+        const bannerHtml = renderSafeBrowsingBanners(sb);
+        sbSection.innerHTML = bannerHtml;
+        console.log("Banner HTML:", bannerHtml);
+        
+        // Upgrade risk level if malicious detected
+        if (sb.status === "malicious" && !resultEl.classList.contains("risk-critical")) {
+          resultEl.classList.remove("risk-warn", "risk-ok");
+          resultEl.classList.add("risk-critical");
+        }
+      } catch (e) {
+        console.error("Safe Browsing error:", e);
+        sbSection.innerHTML = `
+          <div class="risk-banner risk-warn">
+            <span class="risk-icon">⚠️</span>
+            <div>
+              <div class="risk-label">SAFE BROWSING ERROR</div>
+              <div class="risk-detail">Request failed: ${esc(e.message)}</div>
+            </div>
+          </div>`;
+      }
+    }
+
+    function renderSafeBrowsingBanners(sb) {
+      let html = "";
+      
+      if (sb.status === "not_configured") {
+        html += `
+          <div class="risk-banner risk-info">
+            <span class="risk-icon">ℹ️</span>
+            <div>
+              <div class="risk-label">GOOGLE SAFE BROWSING NOT CONFIGURED</div>
+              <div class="risk-detail">API key is not configured. Configure it in Settings to enable threat detection.</div>
+            </div>
+          </div>`;
+        return html;
+      }
+      
+      if (sb.status === "error") {
+        html += `
+          <div class="risk-banner risk-warn">
+            <span class="risk-icon">⚠️</span>
+            <div>
+              <div class="risk-label">SAFE BROWSING CHECK ERROR</div>
+              <div class="risk-detail">${esc(sb.message || "Could not check Google Safe Browsing")}</div>
+            </div>
+          </div>`;
+        return html;
+      }
+      
+      if (sb.status === "malicious") {
+        const threatTypes = Object.entries(sb.threat_summary || {})
+          .map(([type, count]) => `${type} (${count})`)
+          .join(" · ");
+        
+        html += `
+          <div class="risk-banner risk-critical">
+            <span class="risk-icon">🦠</span>
+            <div>
+              <div class="risk-label">GOOGLE SAFE BROWSING — MALICIOUS</div>
+              <div class="risk-detail">Detected threats: ${esc(threatTypes)}. This URL/domain is flagged by Google Safe Browsing as containing malware, phishing, or unwanted software. Exercise caution.</div>
+            </div>
+          </div>`;
+      } else if (sb.status === "clean") {
+        html += `
+          <div class="risk-banner risk-ok">
+            <span class="risk-icon">✓</span>
+            <div>
+              <div class="risk-label">GOOGLE SAFE BROWSING — CLEAN</div>
+              <div class="risk-detail">No threats detected by Google Safe Browsing.</div>
+            </div>
+          </div>`;
+      }
+      
       return html;
     }
   </script>

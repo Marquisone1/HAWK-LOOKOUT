@@ -7,6 +7,7 @@ from app.risk_scoring import RiskScorer
 from app.graph import InfrastructureGraph
 from app.timeline import Timeline
 from app.detection_rules import DetectionRule, BUILTIN_RULES
+from app.services import BlacklistService, GoogleSafeBrowsingService
 import time
 
 phase_b_bp = Blueprint("phase_b", __name__, url_prefix="/api/v2")
@@ -19,23 +20,34 @@ phase_b_bp = Blueprint("phase_b", __name__, url_prefix="/api/v2")
 @phase_b_bp.route("/lookup/<int:lookup_id>/risk", methods=["GET"])
 @require_api_key
 def get_risk_score(user, lookup_id):
-    """Get explainable risk score for a lookup."""
+    """Get explainable risk score for a lookup, incorporating threat feeds."""
     lookup = LookupHistory.query.get(lookup_id)
     if not lookup:
         return jsonify({"error": "Lookup not found"}), 404
     
     data = lookup.get_result_dict()
     lookup_type = data.get('type', 'unknown')
+    target = lookup.ip_address
     
-    # Score based on type
+    # Collect threat feed data
+    blacklist_service = BlacklistService()
+    safe_browsing_service = GoogleSafeBrowsingService()
+    
+    # Get blacklist data (DNSBL, ClickFix, URLhaus)
+    blacklist_data = blacklist_service.check(target, lookup_type)
+    
+    # Get Safe Browsing data
+    safe_browsing_data = safe_browsing_service.check(target)
+    
+    # Score based on type with threat feed data
     if lookup_type == 'domain':
-        score, signals = RiskScorer.score_domain(data)
+        score, signals = RiskScorer.score_domain(data, blacklist_data=blacklist_data, safe_browsing_data=safe_browsing_data)
     else:
-        score, signals = RiskScorer.score_ip(data)
+        score, signals = RiskScorer.score_ip(data, blacklist_data=blacklist_data, safe_browsing_data=safe_browsing_data)
     
     return jsonify({
         "lookup_id": lookup_id,
-        "target": lookup.ip_address,
+        "target": target,
         "type": lookup_type,
         "score": score,
         "level": RiskScorer.get_overall_level(score).value,

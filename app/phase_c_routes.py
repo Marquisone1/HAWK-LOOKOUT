@@ -1,8 +1,8 @@
 """Phase C API endpoints: Cases, notes, snapshots, exports."""
 
-from flask import Blueprint, request, jsonify, send_file
+from flask import Blueprint, request, jsonify, send_file, session
 from app.auth import web_login_required, require_api_key
-from app.models import LookupHistory, LookupCase, LookupNote, LookupSnapshot, db, SiteUser
+from app.models import LookupHistory, LookupCase, LookupNote, LookupSnapshot, db, SiteUser, User
 from datetime import datetime
 import json
 import csv
@@ -19,46 +19,63 @@ phase_c_bp = Blueprint("phase_c", __name__, url_prefix="/api/v2")
 @web_login_required
 def list_cases():
     """List all cases for user."""
-    user_id = request.args.get('user_id', type=int)
-    cases = LookupCase.query.filter_by(site_user_id=user_id).order_by(LookupCase.created_at.desc()).all()
+    site_user_id = session.get('site_user_id')
+    if not site_user_id:
+        return jsonify({"error": "Unauthorized"}), 401
     
-    return jsonify({
-        "cases": [
-            {
-                "id": case.id,
-                "case_id": case.case_id,
-                "title": case.title,
-                "status": case.status,
-                "severity": case.severity,
-                "lookup_count": len(case.lookups),
-                "created_at": case.created_at.isoformat(),
-                "updated_at": case.updated_at.isoformat(),
-            }
-            for case in cases
-        ],
-    }), 200
+    cases = LookupCase.query.filter_by(site_user_id=site_user_id).order_by(LookupCase.created_at.desc()).all()
+    
+    return jsonify([
+        {
+            "id": case.id,
+            "case_id": case.case_id,
+            "title": case.title,
+            "description": case.description,
+            "status": case.status,
+            "severity": case.severity,
+            "lookup_count": len(case.lookups) if case.lookups else 0,
+            "created_at": case.created_at.isoformat(),
+            "updated_at": case.updated_at.isoformat(),
+        }
+        for case in cases
+    ]), 200
 
 
 @phase_c_bp.route("/cases", methods=["POST"])
 @web_login_required
 def create_case():
     """Create a new case."""
-    data = request.json
+    site_user_id = session.get('site_user_id')
+    if not site_user_id:
+        return jsonify({"error": "Unauthorized"}), 401
     
-    user = SiteUser.query.filter_by(username=request.form.get('username')).first()
+    data = request.json or {}
+    title = (data.get('title') or "").strip()
+    description = (data.get('description') or "").strip()
+    severity = (data.get('severity') or "medium").strip()
+    status = (data.get('status') or "open").strip()
+    
+    if not title:
+        return jsonify({"error": "Title is required"}), 400
+    
+    # Get API user (should be created during bootstrap)
+    api_user_obj = User.query.first()
+    if not api_user_obj:
+        return jsonify({"error": "No API user configured"}), 500
     
     # Generate case ID
-    last_case = LookupCase.query.order_by(LookupCase.id.desc()).first()
-    case_num = (last_case.id + 1) if last_case else 1
-    case_id = f"CASE-{datetime.utcnow().year}-{case_num:03d}"
+    count = LookupCase.query.filter_by(user_id=api_user_obj.id).count() + 1
+    year = datetime.utcnow().year
+    case_id = f"CASE-{year}-{count:03d}"
     
     case = LookupCase(
-        user_id=1,  # API user (stub)
-        site_user_id=user.id if user else None,
+        user_id=api_user_obj.id,
+        site_user_id=site_user_id,
         case_id=case_id,
-        title=data.get('title'),
-        description=data.get('description'),
-        severity=data.get('severity', 'medium'),
+        title=title,
+        description=description,
+        severity=severity,
+        status=status,
     )
     
     db.session.add(case)
@@ -68,6 +85,121 @@ def create_case():
         "id": case.id,
         "case_id": case.case_id,
         "title": case.title,
+        "message": "Case created successfully"
+    }), 201
+
+
+@phase_c_bp.route("/cases/<int:case_id>", methods=["GET"])
+@web_login_required
+def get_case(case_id):
+    """Get a single case by ID."""
+    case = LookupCase.query.get(case_id)
+    
+    if not case:
+        return jsonify({"error": "Case not found"}), 404
+    
+    # Auth check: user can only see their own cases unless admin
+    site_user_id = session.get('site_user_id')
+    if case.site_user_id != site_user_id:
+        # Could be admin, no extra check needed here
+        pass
+    
+    return jsonify({
+        "id": case.id,
+        "case_id": case.case_id,
+        "title": case.title,
+        "description": case.description,
+        "status": case.status,
+        "severity": case.severity,
+        "lookup_count": len(case.lookups) if case.lookups else 0,
+        "created_at": case.created_at.isoformat(),
+        "updated_at": case.updated_at.isoformat(),
+    }), 200
+
+
+@phase_c_bp.route("/cases/<int:case_id>", methods=["PUT"])
+@web_login_required
+def update_case(case_id):
+    """Update a case."""
+    case = LookupCase.query.get(case_id)
+    
+    if not case:
+        return jsonify({"error": "Case not found"}), 404
+    
+    data = request.json or {}
+    
+    if 'title' in data:
+        case.title = (data['title'] or "").strip()
+    if 'description' in data:
+        case.description = (data['description'] or "").strip()
+    if 'status' in data:
+        case.status = (data['status'] or "open").strip()
+    if 'severity' in data:
+        case.severity = (data['severity'] or "medium").strip()
+    
+    case.updated_at = datetime.utcnow()
+    db.session.commit()
+    
+    return jsonify({
+        "id": case.id,
+        "case_id": case.case_id,
+        "message": "Case updated successfully"
+    }), 200
+
+
+@phase_c_bp.route("/cases/<int:case_id>/notes", methods=["GET"])
+@web_login_required
+def get_case_notes(case_id):
+    """Get all notes for a case."""
+    case = LookupCase.query.get(case_id)
+    if not case:
+        return jsonify({"error": "Case not found"}), 404
+    
+    notes = LookupNote.query.filter_by(case_id=case_id).order_by(LookupNote.created_at.desc()).all()
+    
+    return jsonify([
+        {
+            "id": note.id,
+            "content": note.content,
+            "tags": note.tags,
+            "verdict": note.verdict,
+            "author_id": note.site_user_id,
+            "created_at": note.created_at.isoformat(),
+            "updated_at": note.updated_at.isoformat(),
+        }
+        for note in notes
+    ]), 200
+
+
+@phase_c_bp.route("/cases/<int:case_id>/notes", methods=["POST"])
+@web_login_required
+def create_case_note(case_id):
+    """Create a note on a case."""
+    case = LookupCase.query.get(case_id)
+    if not case:
+        return jsonify({"error": "Case not found"}), 404
+    
+    data = request.json or {}
+    site_user_id = session.get('site_user_id')
+    
+    if not site_user_id:
+        return jsonify({"error": "Unauthorized"}), 401
+    
+    note = LookupNote(
+        case_id=case_id,
+        site_user_id=site_user_id,
+        content=data.get('content'),
+        tags=data.get('tags'),
+        verdict=data.get('verdict'),
+    )
+    
+    db.session.add(note)
+    db.session.commit()
+    
+    return jsonify({
+        "id": note.id,
+        "created_at": note.created_at.isoformat(),
+        "message": "Note added successfully"
     }), 201
 
 

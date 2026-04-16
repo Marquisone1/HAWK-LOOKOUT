@@ -142,6 +142,10 @@ def _migrate_db():
             conn.execute(text("ALTER TABLE users ADD COLUMN urlhaus_auth_key VARCHAR(255)"))
             logger.info("Migration: added 'urlhaus_auth_key' column to users")
         
+        if 'google_safe_browsing_api_key' not in cols:
+            conn.execute(text("ALTER TABLE users ADD COLUMN google_safe_browsing_api_key VARCHAR(255)"))
+            logger.info("Migration: added 'google_safe_browsing_api_key' column to users (for Google Safe Browsing integration)")
+        
         if 'prefer_fallback' not in cols:
             conn.execute(text("ALTER TABLE users ADD COLUMN prefer_fallback BOOLEAN NOT NULL DEFAULT 0"))
             logger.info("Migration: added 'prefer_fallback' column to users (default: False)")

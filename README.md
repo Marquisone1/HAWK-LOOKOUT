@@ -1,4 +1,4 @@
-# 🦅 HAWK LOOKOUT v2.0
+# 🦅 HAWK LOOKOUT v2.1
 
 **Minimal WHOIS reconnaissance tool for IPs and domains — now with free fallback services.**  
 Self-hosted, Docker-ready, login-protected, with a REST API and a clean dark/light web UI.
@@ -6,6 +6,24 @@ Self-hosted, Docker-ready, login-protected, with a REST API and a clean dark/lig
 > **⚠️ This is a fun vibe-coded side project — not enterprise software.**  
 > Built for learning, tinkering, and home-lab threat hunting. No SLA, no warranty,
 > no billion-dollar compliance certifications. Ship fast, break nothing important. 🚀
+
+---
+
+## What's New in v2.1
+
+### Risk Intelligence Page
+- **Comprehensive Risk Analysis** — Unified threat analysis with integrated risk scoring from multiple threat feeds
+- **Lookup History Display** — Visual history as indexed boxes showing all previous lookups with timestamps in local timezone
+- **Risk Score Display** — Prominent risk severity indicator (0-100 scale) with color-coded threat levels
+- **ClickFix Minimum Enforcement** — ClickFix findings automatically trigger minimum risk score of 80
+- **Local Time Display** — All timestamps converted to user's local timezone for better readability
+- **Comprehensive Field Display** — All lookup result fields visible with recursive object formatting
+- **Re-Scan Newest** — Latest re-scans automatically show newest results first
+
+### Bug Fixes
+- Fixed duplicate function definition blocking history loading
+- Enhanced logging for risk intelligence pipeline debugging
+- Improved API fallback logic for history retrieval
 
 ---
 

@@ -1,0 +1,904 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="csrf-token" content="{{ csrf_token() }}" />
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="icon" type="image/svg+xml" href="{{ url_for('static', filename='favicon.svg') }}">
+  <title>HAWK LOOKOUT — Risk Intelligence</title>
+  <style>
+    :root {
+      --bg: #1E1E1E;
+      --panel: #2A2A2A;
+      --line: #3D3D3D;
+      --text: #E8E8E8;
+      --muted: #A0A0A0;
+      --accent: #5BA3B2;
+      --ok: #6DB87E;
+      --warn: #D4A574;
+      --danger: #B8707A;
+    }
+
+    body.light {
+      --bg: #FAF7F3;
+      --panel: #FFF8F0;
+      --line: #D4C5B0;
+      --text: #2C2416;
+      --muted: #7A6D5F;
+      --accent: #4A7F8C;
+      --ok: #6B9D7A;
+      --warn: #C9956B;
+      --danger: #A05060;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      font-family: "Roboto", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background: radial-gradient(circle at top right, #0F0F0F 0%, var(--bg) 45%);
+      color: var(--text);
+      min-height: 100vh;
+      padding: 16px;
+      line-height: 1.5;
+    }
+
+    .app {
+      max-width: 1400px;
+      margin: 0 auto;
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 16px;
+      padding: 32px 40px 40px;
+    }
+
+    .top-nav {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 28px;
+      padding-bottom: 20px;
+      border-bottom: 1px solid var(--line);
+    }
+
+    .nav-brand h1 { margin: 0; font-size: 1.8rem; letter-spacing: 0.08em; color: var(--accent); }
+    .nav-brand .subtitle { margin: 4px 0 0; color: var(--muted); font-size: 0.9rem; }
+
+    .nav-links { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+
+    .nav-btn {
+      text-decoration: none; color: var(--text); border: 1px solid var(--line);
+      border-radius: 10px; padding: 8px 18px; font-size: 0.9rem; font-weight: 600;
+      transition: border-color 0.15s, color 0.15s;
+    }
+    .nav-btn:hover { border-color: var(--accent); color: var(--accent); }
+    .nav-btn.logout { color: #A05060; border-color: #E8D4D8; }
+    .nav-btn.logout:hover { border-color: #A05060; }
+
+    /* Tabs */
+    .tabs {
+      display: flex;
+      gap: 8px;
+      border-bottom: 1px solid var(--line);
+      margin-bottom: 24px;
+    }
+
+    .tab-btn {
+      padding: 12px 20px;
+      background: transparent;
+      border: none;
+      color: var(--muted);
+      cursor: pointer;
+      font-weight: 600;
+      border-bottom: 3px solid transparent;
+      transition: color 0.2s, border-color 0.2s;
+    }
+
+    .tab-btn.active {
+      color: var(--accent);
+      border-bottom-color: var(--accent);
+    }
+
+    .tab-btn:hover {
+      color: var(--text);
+    }
+
+    /* Buttons */
+    .btn {
+      background: var(--accent);
+      color: white;
+      border: none;
+      padding: 10px 18px;
+      border-radius: 8px;
+      font-weight: 600;
+      font-size: 0.9rem;
+      cursor: pointer;
+      transition: opacity 0.2s;
+    }
+
+    .btn:hover { opacity: 0.85; }
+
+    /* Search Result Items */
+    .search-result-item {
+      padding: 10px 12px;
+      border-bottom: 1px solid var(--line);
+      cursor: pointer;
+      color: var(--text);
+      transition: background 0.15s;
+    }
+
+    .search-result-item:hover {
+      background: var(--line);
+    }
+
+    .search-recommendation {
+      opacity: 0.8;
+    }
+
+    .search-recommendation:hover {
+      opacity: 1;
+    }
+
+    /* Risk Banners */
+    .risk-banner {
+      border-left: 4px solid var(--accent);
+      border-radius: 8px;
+      padding: 16px;
+      margin-bottom: 12px;
+      display: flex;
+      gap: 12px;
+      background: rgba(91, 163, 178, 0.08);
+    }
+
+    .risk-banner.risk-ok {
+      border-left-color: #6DB87E;
+      background: rgba(109, 184, 126, 0.08);
+    }
+
+    .risk-banner.risk-warn {
+      border-left-color: #D4A574;
+      background: rgba(212, 165, 116, 0.08);
+    }
+
+    .risk-banner.risk-critical {
+      border-left-color: #B8707A;
+      background: rgba(184, 112, 122, 0.08);
+    }
+
+    .risk-banner.risk-info {
+      border-left-color: #5BA3B2;
+      background: rgba(91, 163, 178, 0.08);
+    }
+
+    .risk-icon {
+      font-size: 1.2rem;
+      flex-shrink: 0;
+      line-height: 1.3;
+    }
+
+    .risk-label {
+      font-weight: 700;
+      font-size: 0.85rem;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: var(--text);
+      margin-bottom: 4px;
+    }
+
+    .risk-detail {
+      font-size: 0.85rem;
+      color: var(--text);
+      line-height: 1.4;
+    }
+
+    .btn:hover { opacity: 0.9; }
+
+    /* Content panels */
+    .panel {
+      background: var(--panel); border: 1px solid var(--line);
+      border-radius: 12px; padding: 20px; margin-bottom: 20px;
+    }
+
+    .panel-title {
+      font-size: 0.85rem; text-transform: uppercase; letter-spacing: 0.1em;
+      color: var(--accent); margin: 0 0 16px; font-weight: 700;
+    }
+
+    /* Risk score card */
+    .risk-cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 16px; margin-bottom: 24px; }
+
+    .risk-card {
+      background: var(--panel); border: 1px solid var(--line);
+      border-radius: 12px; padding: 20px; position: relative; overflow: hidden;
+    }
+
+    .risk-badge {
+      font-size: 2.4rem; font-weight: 700; margin-bottom: 8px;
+    }
+
+    .risk-badge.critical { color: #B8707A; }
+    .risk-badge.high { color: #D4A574; }
+    .risk-badge.medium { color: #5BA3B2; }
+    .risk-badge.low { color: #6DB87E; }
+
+    .risk-target { font-size: 0.85rem; color: var(--muted); word-break: break-all; margin-bottom: 12px; }
+    .risk-signals { font-size: 0.75rem; color: var(--muted); }
+    .risk-signals strong { color: var(--text); }
+
+    /* Signal tags */
+    .signal-list { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
+    .signal-tag {
+      background: rgba(91, 163, 178, 0.15); color: #5BA3B2;
+      padding: 4px 12px; border-radius: 6px; font-size: 0.75rem;
+    }
+
+    /* Timeline */
+    .timeline-item {
+      display: flex; gap: 16px; margin-bottom: 20px; padding-bottom: 20px;
+      border-bottom: 1px solid var(--line);
+    }
+
+    .timeline-dot {
+      width: 12px; height: 12px; border-radius: 50%;
+      background: var(--accent); flex-shrink: 0; margin-top: 4px;
+    }
+
+    .timeline-content {
+      flex: 1;
+    }
+
+    .timeline-time { font-size: 0.8rem; color: var(--muted); }
+    .timeline-desc { color: var(--text); margin-top: 4px; }
+
+    /* Rules */
+    .rules-list {
+      display: grid; gap: 12px;
+    }
+
+    .rule-item {
+      background: var(--panel); border: 1px solid var(--line);
+      border-radius: 10px; padding: 16px;
+      display: flex; justify-content: space-between; align-items: center;
+    }
+
+    .rule-name { font-weight: 600; color: var(--text); }
+    .rule-severity {
+      padding: 4px 12px; border-radius: 6px; font-size: 0.8rem; font-weight: 600;
+    }
+
+    .rule-severity.critical { background: rgba(184, 112, 122, 0.2); color: #B8707A; }
+    .rule-severity.high { background: rgba(212, 165, 116, 0.2); color: #D4A574; }
+    .rule-severity.medium { background: rgba(91, 163, 178, 0.2); color: #5BA3B2; }
+    .rule-severity.low { background: rgba(109, 184, 126, 0.2); color: #6DB87E; }
+
+    .loading-msg { text-align: center; color: var(--muted); padding: 40px 0; }
+
+    .error-msg { color: #B8707A; background: rgba(184, 112, 122, 0.1); padding: 16px; border-radius: 10px; }
+
+    @media (max-width: 900px) {
+      .risk-cards { grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); }
+      .app { padding: 20px 24px; }
+    }
+  </style>
+</head>
+<body>
+  <main class="app">
+    <nav class="top-nav">
+      <div class="nav-brand">
+        <h1>⚠️ Risk Intelligence</h1>
+        <p class="subtitle">Comprehensive risk database lookup and re-scan with threat intelligence feeds</p>
+      </div>
+      <div class="nav-links">
+        <a href="/" class="nav-btn">🦅 Lookups</a>
+        <a href="/dashboard" class="nav-btn">📊 Dashboard</a>
+        <a href="/cases" class="nav-btn">📋 Cases</a>
+        {% if session.get('site_role') == 'admin' %}
+        <a href="/admin" class="nav-btn">👥 Users</a>
+        {% endif %}
+        <a href="/settings" class="nav-btn">⚙ Settings</a>
+        <a href="/logout" class="nav-btn logout">Logout</a>
+      </div>
+    </nav>
+
+    <!-- Lookup Search -->
+    <div class="panel" style="margin-bottom: 24px; padding: 16px; position: relative;">
+      <div style="display: flex; align-items: center; gap: 12px; flex-wrap: wrap;">
+        <label for="lookup-search" style="margin: 0; font-weight: 600;">Search Lookups:</label>
+        <div style="position: relative; flex: 1; min-width: 300px;">
+          <input 
+            id="lookup-search" 
+            type="text" 
+            placeholder="Enter IP address or domain..."
+            style="width: 100%; padding: 10px 12px; border: 1px solid var(--line); border-radius: 8px; background: var(--panel); color: var(--text); font-size: 0.95rem;"
+            oninput="searchLookups()"
+          />
+          <div id="search-results" style="display: none; position: absolute; top: 100%; left: 0; right: 0; background: var(--panel); border: 1px solid var(--line); border-top: none; border-radius: 0 0 8px 8px; max-height: 300px; overflow-y: auto; z-index: 1000;"></div>
+        </div>
+        <button id="load-btn" class="btn" style="padding: 10px 16px; cursor: pointer;" onclick="loadSelectedLookup()">Load</button>
+      </div>
+    </div>
+
+    <!-- Google Safe Browsing Section -->
+    <div id="sb-section" style="margin-bottom: 24px;"></div>
+
+    <!-- Lookup Result Summary -->
+    <div id="result-section" style="display: none; margin-bottom: 24px;">
+      <div class="panel">
+        <h3 class="panel-title">📊 Lookup Result</h3>
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px;">
+          <div style="background: var(--line); padding: 16px; border-radius: 8px;">
+            <div style="font-size: 0.85rem; color: var(--muted);">Target</div>
+            <div id="result-target" style="font-weight: 600; color: var(--text); margin-top: 8px;"></div>
+          </div>
+          <div style="background: var(--line); padding: 16px; border-radius: 8px;">
+            <div style="font-size: 0.85rem; color: var(--muted);">Type</div>
+            <div id="result-type" style="font-weight: 600; color: var(--text); margin-top: 8px;"></div>
+          </div>
+          <div style="background: var(--line); padding: 16px; border-radius: 8px;">
+            <div style="font-size: 0.85rem; color: var(--muted);">Source</div>
+            <div id="result-source" style="font-weight: 600; color: var(--text); margin-top: 8px;"></div>
+          </div>
+          <div style="background: var(--line); padding: 16px; border-radius: 8px;">
+            <div style="font-size: 0.85rem; color: var(--muted);">Queried</div>
+            <div id="result-date" style="font-weight: 600; color: var(--text); margin-top: 8px;"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div style="margin-bottom: 24px;">
+      <button id="rescan-btn" class="btn" style="padding: 10px 20px; margin-bottom: 16px;" onclick="rescanLookup()">🔄 Re-Scan Domain</button>
+    </div>
+
+    <!-- Lookup History Panel -->
+    <div class="panel" style="margin-bottom: 24px;">
+      <h3 class="panel-title">📖 Lookup History</h3>
+      <div id="history-section" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 16px;">
+        <div class="loading-msg">Search and load a domain/IP to view history...</div>
+      </div>
+    </div>
+
+    <!-- Comprehensive Risk Intelligence Panel -->
+    <div class="panel">
+      <h3 class="panel-title">⚠️ Comprehensive Risk Analysis</h3>
+      <div id="risk-intelligence-content">
+        <div class="loading-msg">Select a lookup to view detailed risk analysis</div>
+      </div>
+    </div>
+  </main>
+
+  <script>
+    const CSRF = document.querySelector('meta[name="csrf-token"]').getAttribute('content');
+    const headers = { 'X-CSRFToken': CSRF, 'X-Requested-With': 'XMLHttpRequest' };
+    let currentLookupId = null;
+
+    // Search lookups by target (IP or domain)
+    async function searchLookups() {
+      const searchInput = document.getElementById('lookup-search');
+      const query = searchInput.value.trim();
+      const resultsDiv = document.getElementById('search-results');
+      
+      try {
+        const resp = await fetch(`/web/search-lookups?q=${encodeURIComponent(query)}&limit=20`, { headers });
+        const data = await resp.json();
+        
+        let html = '';
+        
+        // Show search results first
+        if (data.results && data.results.length > 0) {
+          data.results.forEach(result => {
+            const safeTarget = result.target.replace(/'/g, "\\'").replace(/"/g, '\\"');
+            html += `
+              <div class="search-result-item" onclick="selectLookup(${result.lookup_id}, '${safeTarget}')">
+                <div style="font-weight: 500;">${esc(result.target)}</div>
+                <div style="font-size: 0.8rem; color: var(--muted);">${result.type.toUpperCase()} • ${result.source} • ${new Date(result.created_at).toLocaleString()}</div>
+              </div>
+            `;
+          });
+        }
+        
+        // Show recommendations if no query or no results
+        if (data.recommendations && data.recommendations.length > 0) {
+          if (html) {
+            html += '<div style="padding: 8px 12px; background: rgba(91, 163, 178, 0.1); color: var(--muted); font-size: 0.75rem; font-weight: 600; text-transform: uppercase; border-bottom: 1px solid var(--line);">Recommended Domains</div>';
+          }
+          data.recommendations.forEach(rec => {
+            const safeTarget = rec.target.replace(/'/g, "\\'").replace(/"/g, '\\"');
+            html += `
+              <div class="search-result-item search-recommendation" onclick="selectLookup(${rec.lookup_id}, '${safeTarget}')">
+                <div style="font-weight: 500;">⭐ ${esc(rec.target)}</div>
+                <div style="font-size: 0.8rem; color: var(--muted);">${rec.type.toUpperCase()} • ${rec.source} • ${new Date(rec.created_at).toLocaleString()}</div>
+              </div>
+            `;
+          });
+        }
+        
+        if (html === '') {
+          html = '<div style="padding: 12px; color: var(--muted);">No results found</div>';
+        }
+        
+        resultsDiv.innerHTML = html;
+        resultsDiv.style.display = 'block';
+      } catch (err) {
+        console.error('Search error:', err);
+        resultsDiv.innerHTML = `<div style="padding: 12px; color: var(--danger);">Error: ${esc(err.message)}</div>`;
+        resultsDiv.style.display = 'block';
+      }
+    }
+
+    // Select a lookup from search results
+    function selectLookup(lookupId, target) {
+      currentLookupId = lookupId;
+      document.getElementById('lookup-search').value = target;
+      document.getElementById('search-results').style.display = 'none';
+    }
+
+    // Load selected lookup data into all tabs
+    async function loadSelectedLookup() {
+      if (!currentLookupId) {
+        alert('Please search and select a lookup first');
+        return;
+      }
+      
+      // Get target from the search field
+      const target = document.getElementById('lookup-search').value.trim();
+      console.log('loadSelectedLookup called with target:', target, 'lookupId:', currentLookupId);
+      
+      // Load lookup result summary
+      await loadLookupResult();
+      
+      // Load comprehensive risk analysis
+      await loadComprehensiveRiskIntel(target);
+      
+      // Load threat feed checks
+      await checkBlacklist(target);
+      await checkSafeBrowsing(target);
+      
+      // Load history of this target
+      console.log('About to load history for:', target);
+      await loadHistoryForTarget(target);
+    }
+
+    // Load all history entries for the current target as boxes
+    async function loadHistoryForTarget(target) {
+      const historySection = document.getElementById('history-section');
+      if (!historySection) {
+        console.error('❌ History section DOM not found');
+        return;
+      }
+      
+      if (!target || target.trim() === '') {
+        historySection.innerHTML = '<div style="color: var(--muted); padding: 20px; text-align: center;">Enter a target to view history</div>';
+        console.log('⚠️  loadHistoryForTarget: Target is empty');
+        return;
+      }
+      
+      console.log('📖 loadHistoryForTarget START: target=' + target + ', currentLookupId=' + currentLookupId);
+      historySection.innerHTML = '<div style="color: var(--muted); padding: 20px; text-align: center;">⏳ Loading history...</div>';
+      
+      try {
+        // Try fetching search results first
+        const searchUrl = `/web/search-lookups?q=${encodeURIComponent(target)}&limit=50`;
+        console.log('🔍 Fetching from search API:', searchUrl);
+        const resp = await fetch(searchUrl, { headers });
+        console.log('🔍 Search API response status:', resp.status, resp.statusText);
+        
+        if (!resp.ok) {
+          throw new Error(`Search API error: ${resp.status} ${resp.statusText}`);
+        }
+        
+        const data = await resp.json();
+        console.log('📦 Search API JSON:', data);
+        
+        let allEntries = [...(data.results || []), ...(data.recommendations || [])];
+        console.log('📊 Combined entries from search:', allEntries.length);
+        
+        // If search found nothing, try loading all history
+        if (allEntries.length === 0) {
+          console.log('⚠️  No results from search, trying /web/history endpoint');
+          const histUrl = `/web/history?limit=100`;
+          console.log('📂 Fetching all history from:', histUrl);
+          const histResp = await fetch(histUrl, { headers });
+          console.log('📂 History API response status:', histResp.status);
+          
+          if (histResp.ok) {
+            const histData = await histResp.json();
+            console.log('📦 History API JSON:', histData);
+            
+            if (histData.history && Array.isArray(histData.history)) {
+              allEntries = (histData.history).map(h => ({
+                lookup_id: h.id,
+                target: h.ip_address || h.target || 'Unknown',
+                type: (h.result && h.result.data && h.result.data.domain_name) ? 'domain' : 'ip',
+                source: h.result?.source || h.source || 'Unknown',
+                created_at: h.created_at || new Date().toISOString()
+              }));
+              console.log('✅ Converted history entries:', allEntries.length);
+            }
+          } else {
+            console.warn('⚠️  History endpoint returned', histResp.status);
+          }
+        }
+        
+        console.log('📋 Final entry list length:', allEntries.length);
+        let html = '';
+        
+        if (allEntries.length === 0) {
+          html = '<div style="color: var(--muted); padding: 20px; text-align: center;">📭 No lookup history found</div>';
+          console.log('ℹ️  No entries to render - showing empty message');
+        } else {
+          const entriesToShow = Math.min(allEntries.length, 10);
+          console.log('🎯 Rendering', entriesToShow, 'entries (limit: 10)');
+          
+          html = allEntries.slice(0, 10).map((entry, idx) => {
+            const isCurrentLookup = entry.lookup_id === currentLookupId;
+            const tm = new Date(entry.created_at);
+            const dateStr = tm.toLocaleDateString();
+            const timeStr = tm.toLocaleTimeString();
+            
+            console.log(`  [${idx}] lookup_id=${entry.lookup_id} target=${entry.target} type=${entry.type} isCurrent=${isCurrentLookup}`);
+            
+            return `
+              <div style="background: ${isCurrentLookup ? 'var(--accent)' : 'var(--line)'}; padding: 16px; border-radius: 8px; cursor: pointer; transition: all 0.2s; border: 2px solid ${isCurrentLookup ? 'var(--accent)' : 'transparent'}; opacity: ${isCurrentLookup ? '1' : '0.8'}" 
+                   onclick="selectLookup(${entry.lookup_id}, '${entry.target.replace(/'/g, "\\'")}'); loadSelectedLookup();"
+                   onmouseover="this.style.opacity = '1'; this.style.transform = 'translateY(-2px)'" 
+                   onmouseout="this.style.opacity = '${isCurrentLookup ? '1' : '0.8'}'; this.style.transform = 'translateY(0px)'">
+                <div style="font-weight: 700; color: ${isCurrentLookup ? 'white' : 'var(--text)'}; margin-bottom: 6px; word-break: break-word; font-size: 0.9rem;">
+                  ${esc(entry.target)}
+                </div>
+                <div style="font-size: 0.75rem; margin-bottom: 6px; ${isCurrentLookup ? 'color: rgba(255,255,255,0.8)' : 'color: var(--muted)'};  display: flex; gap: 4px; flex-wrap: wrap;">
+                  <span style="padding: 2px 6px; background: ${isCurrentLookup ? 'rgba(255,255,255,0.2)' : 'var(--panel)'}; border-radius: 4px; font-size: 0.7rem;">${entry.type.toUpperCase()}</span>
+                  <span style="padding: 2px 6px; background: ${isCurrentLookup ? 'rgba(255,255,255,0.2)' : 'var(--panel)'}; border-radius: 4px; font-size: 0.7rem;">${entry.source}</span>
+                </div>
+                <div style="font-size: 0.65rem; ${isCurrentLookup ? 'color: rgba(255,255,255,0.7)' : 'color: var(--muted)'};">
+                  ${dateStr} ${timeStr}
+                </div>
+                ${isCurrentLookup ? '<div style="font-size: 0.7rem; font-weight: 700; margin-top: 4px; color: white;">✓ CURRENT</div>' : ''}
+              </div>
+            `;
+          }).join('');
+        }
+        
+        historySection.innerHTML = html;
+        console.log('✅ loadHistoryForTarget COMPLETE: HTML rendered with', allEntries.length, 'entries');
+      } catch (err) {
+        console.error('❌ loadHistoryForTarget ERROR:', err.message, err);
+        historySection.innerHTML = `<div style="color: var(--danger); padding: 20px; text-align: center;">⚠️ Error loading history: ${esc(err.message)}</div>`;
+      }
+    }
+
+    async function loadLookupResult() {
+      if (!currentLookupId) return;
+      
+      try {
+        const resp = await fetch(`/web/lookup/${currentLookupId}`, { headers });
+        const data = resp.ok ? await resp.json() : null;
+        
+        if (!data) {
+          document.getElementById('result-section').style.display = 'none';
+          return;
+        }
+        
+        // Populate result section with summary
+        document.getElementById('result-target').textContent = esc(data.target);
+        document.getElementById('result-type').textContent = data.type.toUpperCase();
+        document.getElementById('result-source').textContent = data.source || 'Unknown';
+        document.getElementById('result-date').textContent = new Date(data.created_at).toLocaleString();
+        
+        // Store full result data globally for display
+        window.currentResultData = data;
+        
+        // Show result section
+        document.getElementById('result-section').style.display = 'block';
+      } catch (err) {
+        console.error('Error loading lookup result:', err);
+        document.getElementById('result-section').style.display = 'none';
+      }
+    }
+
+    function esc(v) {
+      if (v === null || v === undefined) return "-";
+      return String(v).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
+    }
+
+    async function rescanLookup() {
+      const searchInput = document.getElementById('lookup-search');
+      const target = searchInput.value.trim();
+      
+      if (!target) {
+        alert('Please enter a domain or IP to scan');
+        return;
+      }
+      
+      const prevBtn = document.getElementById('rescan-btn');
+      prevBtn.disabled = true;
+      prevBtn.textContent = '⏳ Re-scanning...';
+      
+      try {
+        const resp = await fetch('/web/lookup', {
+          method: 'POST',
+          headers: { ...headers, 'Content-Type': 'application/json' },
+          body: JSON.stringify({ target })
+        });
+        
+        const payload = await resp.json();
+        if (!resp.ok) {
+          alert(`Error: ${payload.error}`);
+          return;
+        }
+        
+        // Update current lookup ID
+        currentLookupId = payload.lookup_id;
+        
+        // Reload the comprehensive display
+        await loadLookupResult();
+        await loadComprehensiveRiskIntel(target);
+        await checkSafeBrowsing(target);
+        
+        alert('Re-scan complete! ' + (payload.duplicate ? 'Result is identical to previous scan.' : 'New entry created.'));
+      } catch (e) {
+        alert(`Scan failed: ${e.message}`);
+      } finally {
+        prevBtn.disabled = false;
+        prevBtn.textContent = '🔄 Re-Scan Domain';
+      }
+    }
+
+    async function loadComprehensiveRiskIntel(target) {
+      if (!currentLookupId) {
+        document.getElementById('risk-intelligence-content').innerHTML = '<div class="loading-msg">Select a lookup to view detailed risk analysis</div>';
+        return;
+      }
+
+      const el = document.getElementById('risk-intelligence-content');
+      el.innerHTML = '<div class="loading-msg">Loading comprehensive risk analysis...</div>';
+      
+      try {
+        const resp = await fetch(`/web/lookup/${currentLookupId}/risk`, { headers });
+        const riskData = resp.ok ? await resp.json() : null;
+        
+        if (!riskData) {
+          el.innerHTML = '<div class="error-msg">No risk data available</div>';
+          return;
+        }
+
+        // Ensure signals is always an array
+        const signals = Array.isArray(riskData.signals) ? riskData.signals : [];
+
+        // Helper function to format result fields for display
+        function formatField(value) {
+          if (value === null || value === undefined) return 'N/A';
+          if (typeof value === 'object') return JSON.stringify(value, null, 2);
+          if (typeof value === 'boolean') return value ? 'Yes' : 'No';
+          return String(value);
+        }
+
+        // Helper function to recursively display nested objects
+        function displayObject(obj, depth = 0) {
+          if (!obj || typeof obj !== 'object') {
+            return formatField(obj);
+          }
+          
+          if (Array.isArray(obj)) {
+            if (obj.length === 0) return 'Empty array';
+            return obj.map(item => {
+              if (typeof item === 'object') {
+                return `<div style="margin-left: 12px; padding: 8px; background: rgba(0,0,0,0.2); border-radius: 4px; margin-bottom: 4px;">${displayObject(item, depth + 1)}</div>`;
+              }
+              return `<div style="margin-left: 12px;">• ${formatField(item)}</div>`;
+            }).join('');
+          }
+          
+          const entries = Object.entries(obj).filter(([k, v]) => v !== null && v !== undefined && v !== '');
+          if (entries.length === 0) return 'Empty object';
+          
+          return entries.map(([key, value]) => {
+            const displayValue = typeof value === 'object' ? 
+              `<div style="margin-left: 12px; margin-top: 4px;">${displayObject(value, depth + 1)}</div>` :
+              `<strong>${formatField(value)}</strong>`;
+            return `<div style="margin-bottom: 8px;"><div style="color: var(--muted); font-size: 0.85rem; text-transform: capitalize;">${key.replace(/_/g, ' ')}</div>${displayValue}</div>`;
+          }).join('');
+        }
+
+        let html = `
+          <div style="margin-bottom: 32px;">
+            <!-- Main Risk Score Display -->
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 20px; margin-bottom: 32px;">
+              <div style="background: linear-gradient(135deg, var(--panel) 0%, var(--line) 100%); border: 2px solid ${riskData.score >= 80 ? '#B8707A' : riskData.score >= 60 ? '#D4A574' : riskData.score >= 40 ? '#5BA3B2' : '#6DB87E'}; padding: 28px; border-radius: 12px; text-align: center;">
+                <div style="font-size: 0.85rem; color: var(--muted); margin-bottom: 8px; text-transform: uppercase; font-weight: 600;">Overall Risk Score</div>
+                <div style="font-size: 4rem; font-weight: 900; color: ${riskData.score >= 80 ? '#B8707A' : riskData.score >= 60 ? '#D4A574' : riskData.score >= 40 ? '#5BA3B2' : '#6DB87E'};">${Math.round(riskData.score)}</div>
+                <div style="font-size: 1.2rem; margin-top: 12px; font-weight: 700; color: var(--text); text-transform: uppercase; letter-spacing: 0.08em;">${riskData.level}</div>
+              </div>
+              
+              <div style="background: var(--line); padding: 20px; border-radius: 12px; display: flex; flex-direction: column; justify-content: center;">
+                <div style="font-size: 0.9rem; color: var(--muted); margin-bottom: 12px; font-weight: 600;">Quick Stats</div>
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+                  <div style="padding: 12px; background: var(--panel); border-radius: 8px; text-align: center;">
+                    <div style="font-size: 0.8rem; color: var(--muted);">Signal Count</div>
+                    <div style="font-size: 1.8rem; font-weight: 700; color: var(--accent);">${signals.length}</div>
+                  </div>
+                  <div style="padding: 12px; background: var(--panel); border-radius: 8px; text-align: center;">
+                    <div style="font-size: 0.8rem; color: var(--muted);">Type</div>
+                    <div style="font-size: 1.2rem; font-weight: 700; color: var(--text);">${riskData.type.toUpperCase()}</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+            
+            <!-- All Risk Signals -->
+            <div style="background: var(--line); padding: 24px; border-radius: 12px; margin-bottom: 24px;">
+              <h4 style="margin: 0 0 16px; color: var(--accent); font-size: 0.95rem; text-transform: uppercase; font-weight: 700;">🚨 Detected Risk Signals</h4>
+              <div style="${signals.length === 0 ? 'color: var(--muted);' : ''} display: flex; flex-direction: column; gap: 12px;">
+                ${signals.length === 0 ? '<div>No risk signals detected</div>' : signals.map(sig => `
+                  <div style="background: var(--panel); padding: 16px; border-radius: 8px; border-left: 4px solid ${sig.level === 'critical' ? '#B8707A' : sig.level === 'high' ? '#D4A574' : sig.level === 'medium' ? '#5BA3B2' : '#6DB87E'};">
+                    <div style="display: flex; justify-content: space-between; align-items: start; gap: 12px;">
+                      <div style="flex: 1;">
+                        <div style="font-weight: 700; color: var(--text); margin-bottom: 4px;">${esc(sig.label)}</div>
+                        <div style="font-size: 0.85rem; color: var(--muted); line-height: 1.4;">${esc(sig.detail)}</div>
+                        <div style="font-size: 0.75rem; color: var(--muted); margin-top: 6px;">Category: <strong>${sig.category}</strong> | Weight: <strong>${sig.weight.toFixed(1)}x</strong></div>
+                      </div>
+                      <div style="flex-shrink: 0; padding: 6px 12px; border-radius: 6px; background: ${sig.level === 'critical' ? 'rgba(184, 112, 122, 0.2); color: #B8707A' : sig.level === 'high' ? 'rgba(212, 165, 116, 0.2); color: #D4A574' : sig.level === 'medium' ? 'rgba(91, 163, 178, 0.2); color: #5BA3B2' : 'rgba(109, 184, 126, 0.2); color: #6DB87E'}; font-weight: 700; text-transform: uppercase; font-size: 0.7rem;">${sig.level}</div>
+                    </div>
+                  </div>
+                `).join('')}
+              </div>
+            </div>
+
+            <!-- All Lookup Result Fields -->
+            ${window.currentResultData && window.currentResultData.result ? `
+              <div style="background: var(--line); padding: 24px; border-radius: 12px;">
+                <h4 style="margin: 0 0 16px; color: var(--accent); font-size: 0.95rem; text-transform: uppercase; font-weight: 700;">📋 Complete Lookup Data</h4>
+                <div style="background: var(--panel); padding: 16px; border-radius: 8px; max-height: 600px; overflow-y: auto; font-size: 0.85rem;">
+                  ${displayObject(window.currentResultData.result)}
+                </div>
+              </div>
+            ` : ''}
+          </div>
+        `;
+        
+        el.innerHTML = html;
+      } catch (err) {
+        console.error('Risk intelligence error:', err);
+        el.innerHTML = `<div class="error-msg">Error loading risk analysis: ${esc(err.message)}</div>`;
+      }
+    }
+
+    async function checkBlacklist(target) {
+      const blSection = document.getElementById('blacklist-section');
+      if (!blSection) return;
+      try {
+        const resp = await fetch(`/web/blacklist?target=${encodeURIComponent(target)}`, { headers });
+        const bl = await resp.json();
+        console.log('Blacklist check:', bl);
+        if (!resp.ok) return;
+        blSection.innerHTML = renderBlacklistBanners(bl);
+      } catch (e) {
+        console.error('Blacklist error:', e);
+      }
+    }
+
+    function renderBlacklistBanners(bl) {
+      let html = '';
+      if (bl.clickfix === true) {
+        html += `
+          <div class="risk-banner risk-critical">
+            <span class="risk-icon">☠️</span>
+            <div>
+              <div class="risk-label">CLICKFIX CAMPAIGN — KNOWN THREAT</div>
+              <div class="risk-detail">Listed in the ClickFix active threat feed. Associated with fake CAPTCHA & browser-fix social engineering attacks.</div>
+            </div>
+          </div>`;
+      }
+      if (bl.urlhaus && bl.urlhaus.status === 'found') {
+        const urlCount = bl.urlhaus.url_count || 0;
+        html += `
+          <div class="risk-banner risk-critical">
+            <span class="risk-icon">⚠️</span>
+            <div>
+              <div class="risk-label">URLHAUS — MALWARE DISTRIBUTION HOST</div>
+              <div class="risk-detail">Hosting ${urlCount} malicious URLs. Tags: ${(bl.urlhaus.tags || []).join(', ')}</div>
+            </div>
+          </div>`;
+      }
+      (bl.dnsbl || []).forEach(d => {
+        if (d.listed) {
+          html += `
+            <div class="risk-banner risk-critical">
+              <span class="risk-icon">🚫</span>
+              <div>
+                <div class="risk-label">${d.list.toUpperCase()} — BLACKLISTED</div>
+                <div class="risk-detail">Listed in ${d.list} blacklist.</div>
+              </div>
+            </div>`;
+        }
+      });
+      return html;
+    }
+
+    // ── Google Safe Browsing check ────────────────────────────────────────────
+    async function checkSafeBrowsing(target) {
+      const sbSection = document.getElementById("sb-section");
+      if (!sbSection) return;
+      
+      sbSection.innerHTML = `<p style="color:var(--muted);font-size:0.82rem;margin:0 0 8px;">🛡️ Checking Google Safe Browsing…</p>`;
+      
+      try {
+        const resp = await fetch(`/web/safe-browsing?target=${encodeURIComponent(target)}`, { headers });
+        const sb = await resp.json();
+        console.log('Safe Browsing response:', sb);
+        
+        const bannerHtml = renderSafeBrowsingBanners(sb);
+        sbSection.innerHTML = bannerHtml;
+        console.log('Safe Browsing banner:', bannerHtml);
+      } catch (e) {
+        console.error("Safe Browsing check error:", e);
+        sbSection.innerHTML = `
+          <div class="risk-banner risk-warn">
+            <span class="risk-icon">⚠️</span>
+            <div>
+              <div class="risk-label">SAFE BROWSING ERROR</div>
+              <div class="risk-detail">Request failed: ${esc(e.message)}</div>
+            </div>
+          </div>`;
+      }
+    }
+
+    function renderSafeBrowsingBanners(sb) {
+      let html = "";
+      
+      if (sb.status === "not_configured") {
+        html += `
+          <div class="risk-banner risk-info">
+            <span class="risk-icon">ℹ️</span>
+            <div>
+              <div class="risk-label">GOOGLE SAFE BROWSING NOT CONFIGURED</div>
+              <div class="risk-detail">API key is not configured. Configure it in Settings to enable threat detection.</div>
+            </div>
+          </div>`;
+        return html;
+      }
+      
+      if (sb.status === "error") {
+        html += `
+          <div class="risk-banner risk-warn">
+            <span class="risk-icon">⚠️</span>
+            <div>
+              <div class="risk-label">SAFE BROWSING CHECK ERROR</div>
+              <div class="risk-detail">${esc(sb.message || "Could not check Google Safe Browsing")}</div>
+            </div>
+          </div>`;
+        return html;
+      }
+      
+      if (sb.status === "malicious") {
+        const threatTypes = Object.entries(sb.threat_summary || {})
+          .map(([type, count]) => `${type} (${count})`)
+          .join(" · ");
+        
+        html += `
+          <div class="risk-banner risk-critical">
+            <span class="risk-icon">🦠</span>
+            <div>
+              <div class="risk-label">GOOGLE SAFE BROWSING — MALICIOUS</div>
+              <div class="risk-detail">Detected threats: ${esc(threatTypes)}. This URL/domain is flagged by Google Safe Browsing as containing malware, phishing, or unwanted software. Exercise caution.</div>
+            </div>
+          </div>`;
+      } else if (sb.status === "clean") {
+        html += `
+          <div class="risk-banner risk-ok">
+            <span class="risk-icon">✓</span>
+            <div>
+              <div class="risk-label">GOOGLE SAFE BROWSING — CLEAN</div>
+              <div class="risk-detail">No threats detected by Google Safe Browsing.</div>
+            </div>
+          </div>`;
+      }
+      
+      return html;
+    }
+  </script>
+</body>
+</html>
