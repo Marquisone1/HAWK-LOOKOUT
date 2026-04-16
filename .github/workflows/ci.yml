@@ -44,11 +44,6 @@ jobs:
     steps:
     - uses: actions/checkout@v4
     
-    - name: Run Bandit (Python security linter)
-      uses: gaurav-nelson/github-action-bandit@v1
-      with:
-        path: "app"
-    
     - name: Set up Python
       uses: actions/setup-python@v4
       with:
@@ -57,7 +52,11 @@ jobs:
     - name: Install dependencies
       run: |
         python -m pip install --upgrade pip
-        pip install safety
+        pip install bandit safety
+    
+    - name: Run Bandit (Python security linter)
+      run: |
+        python -m bandit -r app/ -f txt
     
     - name: Check for vulnerable dependencies
       run: |
