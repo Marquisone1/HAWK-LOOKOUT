@@ -339,9 +339,8 @@ class RiskScorer:
         if any('TOR' in sig.label for sig in signals):
             component_scores['tor'] = 55.0
         
-        # 6. Hosting/Cloud provider abuse — 40 max
-        if any('HOSTING' in sig.label or 'CLOUD' in sig.label for sig in signals):
-            # Reduce if it's known legitimate cloud (AWS, Google, Azure) but still penalize
+        # 6. Hosting/Cloud provider abuse — 40 max (only if explicitly flagged as risky)
+        if any(any(token in sig.label for token in ['HOSTING', 'MAJOR CLOUD', 'CLOUD PROVIDER']) for sig in signals):
             component_scores['hosting'] = 40.0
         
         # 7. Brand new domain (<7 days) — 35 max
