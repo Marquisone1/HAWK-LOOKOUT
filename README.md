@@ -84,7 +84,7 @@ docker compose up -d
 On first boot, admin credentials are written to a secure file inside the container:
 
 ```bash
-docker compose exec whois cat /data/first_boot_credentials.txt
+docker exec hawk-lookout cat /data/first_boot_credentials.txt
 ```
 
 > **Delete this file after reading it** and change your password in Settings immediately.
@@ -142,7 +142,7 @@ Copy `.env.example` to `.env` and fill in the values you need.
 - [ ] `your-domain.com` replaced in `nginx/whois.conf`
 - [ ] TLS certificate obtained and paths updated in config
 - [ ] `FLASK_ENV=production` set in `.env`
-- [ ] First-boot credentials file read (`docker compose exec whois cat /data/first_boot_credentials.txt`) and deleted
+- [ ] First-boot credentials file read (`docker exec hawk-lookout cat /data/first_boot_credentials.txt`) and deleted
 - [ ] Password changed from auto-generated default in Settings
 
 ---
