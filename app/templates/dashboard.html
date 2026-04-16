@@ -179,10 +179,15 @@
     }
 
     async function loadDashboard() {
+      const headers = { 'X-CSRFToken': CSRF, 'X-Requested-With': 'XMLHttpRequest' };
       const [analyticsResp, feedResp] = await Promise.all([
-        fetch('/web/analytics', { headers: { 'X-CSRFToken': CSRF } }),
-        fetch('/web/feed-status', { headers: { 'X-CSRFToken': CSRF } }),
+        fetch('/web/analytics', { headers }),
+        fetch('/web/feed-status', { headers }),
       ]);
+
+      if (!analyticsResp.ok || !feedResp.ok) {
+        throw new Error(`HTTP error: ${analyticsResp.status} ${feedResp.status}`);
+      }
 
       const analytics = await analyticsResp.json();
       const feed = await feedResp.json();

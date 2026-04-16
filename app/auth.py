@@ -106,6 +106,10 @@ def web_login_required(f):
     @wraps(f)
     def decorated(*args, **kwargs):
         if "site_user_id" not in session:
+            # Return JSON error for AJAX requests, HTML redirect for page requests
+            if request.headers.get('X-Requested-With') == 'XMLHttpRequest' or \
+               'application/json' in request.headers.get('Accept', ''):
+                return jsonify({"error": "Unauthorized"}), 401
             return redirect(url_for("whois.login"))
         return f(*args, **kwargs)
 
@@ -117,12 +121,21 @@ def require_admin(f):
 
     @wraps(f)
     def decorated(*args, **kwargs):
+        is_json_request = request.headers.get('X-Requested-With') == 'XMLHttpRequest' or \
+                         'application/json' in request.headers.get('Accept', '')
+        
         if "site_user_id" not in session:
+            if is_json_request:
+                return jsonify({"error": "Unauthorized"}), 401
             return redirect(url_for("whois.login"))
+        
         if session.get("site_role") != "admin":
+            if is_json_request:
+                return jsonify({"error": "Forbidden: Admin access required"}), 403
             from flask import flash
             flash("Admin access required.", "error")
             return redirect(url_for("whois.index"))
+        
         return f(*args, **kwargs)
 
     return decorated
