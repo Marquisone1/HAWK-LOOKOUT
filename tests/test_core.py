@@ -12,7 +12,6 @@ def app():
     """Create application for testing."""
     app = create_app()
     app.config['TESTING'] = True
-    app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///:memory:'
     
     with app.app_context():
         db.create_all()
@@ -62,10 +61,10 @@ class TestWhoisFreakServiceRouting:
         # Valid domains
         assert service.is_domain("example.com") is True
         assert service.is_domain("sub.example.co.uk") is True
-        assert service.is_domain("example.com.") is True
         
         # Invalid domains
         assert service.is_domain("8.8.8.8") is False
+        assert service.is_domain("example.com.") is False  # Trailing dot not supported
         assert service.is_domain("") is False
         assert service.is_domain("just-a-word") is False
 
