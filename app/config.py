@@ -7,6 +7,14 @@ load_dotenv()
 _PLACEHOLDER = "replace-with-a-random-64-char-hex-string"
 
 
+def _env_bool(name: str, default: bool) -> bool:
+    """Parse boolean environment variables with a sane fallback."""
+    value = os.getenv(name)
+    if value is None:
+        return default
+    return value.strip().lower() in {"1", "true", "yes", "on"}
+
+
 def _load_secret_key() -> str:
     """
     Use SECRET_KEY from env if it looks like a real value.
@@ -65,11 +73,11 @@ class Config:
     # Session expires after 8 hours of inactivity
     PERMANENT_SESSION_LIFETIME = 28800
 
-    # Session cookie security — True unless explicitly running in local dev without HTTPS.
-    # In Docker behind Nginx, SESSION_COOKIE_SECURE should be True because the browser
-    # connects over HTTPS even though Flask sees plain HTTP internally.
-    # Set SESSION_COOKIE_SECURE=false in .env only for local `flask run` without TLS.
-    SESSION_COOKIE_SECURE = os.getenv("SESSION_COOKIE_SECURE", "true").lower() != "false"
+    # Session cookie security defaults to secure in production and insecure in
+    # development so local HTTP logins/CSRF work out of the box.
+    # Explicit SESSION_COOKIE_SECURE still overrides this default.
+    _flask_env = os.getenv("FLASK_ENV", "production").lower()
+    SESSION_COOKIE_SECURE = _env_bool("SESSION_COOKIE_SECURE", default=(_flask_env == "production"))
     SESSION_COOKIE_HTTPONLY = True
     SESSION_COOKIE_SAMESITE = "Lax"
 
