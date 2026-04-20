@@ -1,5 +1,6 @@
 import os
 import secrets
+import tempfile
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -27,6 +28,7 @@ def _load_secret_key() -> str:
         return env_key
 
     key_file = os.getenv("SECRET_KEY_FILE", "/data/secret_key")
+    fallback_key_file = os.path.join(tempfile.gettempdir(), "hawk-lookout-secret_key")
     try:
         with open(key_file) as f:
             stored = f.read().strip()
@@ -36,18 +38,24 @@ def _load_secret_key() -> str:
         pass
 
     generated = secrets.token_hex(32)
-    try:
-        os.makedirs(os.path.dirname(key_file), exist_ok=True)
-        with open(key_file, "w") as f:
-            f.write(generated)
-    except Exception:
-        # In production, do not silently rotate SECRET_KEY on every restart,
-        # because that invalidates sessions and CSRF tokens.
-        if os.getenv("FLASK_ENV", "production").lower() == "production":
-            raise RuntimeError(
-                "Unable to persist SECRET_KEY to SECRET_KEY_FILE. "
-                "Set SECRET_KEY explicitly or fix write access to the key file path."
-            )
+    persisted = False
+    for target in (key_file, fallback_key_file):
+        try:
+            os.makedirs(os.path.dirname(target), exist_ok=True)
+            with open(target, "w") as f:
+                f.write(generated)
+            persisted = True
+            break
+        except Exception:
+            continue
+
+    # In production, do not silently rotate SECRET_KEY on every restart,
+    # because that invalidates sessions and CSRF tokens.
+    if not persisted and os.getenv("FLASK_ENV", "production").lower() == "production":
+        raise RuntimeError(
+            "Unable to persist SECRET_KEY to SECRET_KEY_FILE. "
+            "Set SECRET_KEY explicitly or fix write access to the key file path."
+        )
     return generated
 
 
