@@ -50,7 +50,7 @@ def _load_secret_key() -> str:
             continue
 
     # In production, do not silently rotate SECRET_KEY on every restart,
-    # because that invalidates sessions and CSRF tokens.
+    # because that invalidates active sessions.
     if not persisted and os.getenv("FLASK_ENV", "production").lower() == "production":
         raise RuntimeError(
             "Unable to persist SECRET_KEY to SECRET_KEY_FILE. "
@@ -88,13 +88,9 @@ class Config:
     PERMANENT_SESSION_LIFETIME = 28800
 
     # Session cookie security defaults to secure in production and insecure in
-    # development so local HTTP logins/CSRF work out of the box.
+    # development so local HTTP logins work out of the box.
     # Explicit SESSION_COOKIE_SECURE still overrides this default.
     _flask_env = os.getenv("FLASK_ENV", "production").lower()
     SESSION_COOKIE_SECURE = _env_bool("SESSION_COOKIE_SECURE", default=(_flask_env == "production"))
     SESSION_COOKIE_HTTPONLY = True
     SESSION_COOKIE_SAMESITE = "Lax"
-
-    # Flask-WTF CSRF
-    WTF_CSRF_ENABLED = _env_bool("WTF_CSRF_ENABLED", default=True)
-    WTF_CSRF_TIME_LIMIT = 3600  # 1-hour token lifetime

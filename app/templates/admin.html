@@ -3,7 +3,6 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <meta name="csrf-token" content="{{ csrf_token() }}" />
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;600;700&display=swap" rel="stylesheet">
@@ -228,14 +227,12 @@
           <td style="text-align:right;">
             {% if u.id != session.get('site_user_id') %}
             <form method="POST" action="/admin/toggle-role/{{ u.id }}" class="inline-form" style="margin-right:6px;">
-              <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
               <button type="submit" class="btn btn-toggle" title="Toggle role">
                 {% if u.role == 'admin' %}↓ Analyst{% else %}↑ Admin{% endif %}
               </button>
             </form>
             <form method="POST" action="/admin/delete/{{ u.id }}" class="inline-form"
                   onsubmit="return confirm('Delete user \'{{ u.username }}\'? This cannot be undone.')">
-              <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
               <button type="submit" class="btn btn-delete">Delete</button>
             </form>
             {% else %}
@@ -252,7 +249,6 @@
 
     <div class="create-card">
       <form method="POST" action="/admin/create" autocomplete="off">
-        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
         <div class="row">
           <div class="form-group">
             <label for="new_username">Username</label>
@@ -328,8 +324,7 @@
         const response = await fetch('/admin/toggle-fallback', {
           method: 'POST',
           headers: {
-            'Content-Type': 'application/json',
-            'X-CSRFToken': document.querySelector('meta[name="csrf-token"]').content
+            'Content-Type': 'application/json'
           }
         });
         if (response.ok) {

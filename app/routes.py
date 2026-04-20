@@ -54,7 +54,7 @@ def index():
 
 
 # ─────────────────────────────────────────────────────────────────────────────
-# Session-authenticated web proxy routes (CSRF-protected, browser-only)
+# Session-authenticated web proxy routes (browser-only)
 # The real API key never leaves the server.
 # ─────────────────────────────────────────────────────────────────────────────
 

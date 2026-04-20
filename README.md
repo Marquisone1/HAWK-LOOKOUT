@@ -24,6 +24,7 @@ Self-hosted, Docker-ready, login-protected, with a REST API and a clean dark/lig
 - Fixed duplicate function definition blocking history loading
 - Enhanced logging for risk intelligence pipeline debugging
 - Improved API fallback logic for history retrieval
+- CSRF token enforcement has been removed for now; a redesigned implementation is planned for a future release.
 
 ---
 
@@ -69,7 +70,7 @@ Self-hosted, Docker-ready, login-protected, with a REST API and a clean dark/lig
 - **Web UI** — Login-protected dashboard with dark/light theme
 - **REST API** — API-key authenticated; all endpoints documented below
 - **Rate Limiting** — 30 req/min on the API, 10 req/min on login and settings
-- **Security hardened** — CSRF protection, security headers (CSP, HSTS, X-Frame DENY), session fixation prevention, non-root Docker container
+- **Security hardened** — security headers (CSP, HSTS, X-Frame DENY), session fixation prevention, non-root Docker container
 
 ---
 
@@ -252,7 +253,7 @@ docker cp $(docker compose ps -q whois):/data/database.bak.db ./backup-$(date +%
 |---|---|
 | API key exposure | Never sent to the browser — web UI uses session authentication |
 | Session cookies | `HttpOnly`, `SameSite=Lax`, `Secure=True` in production |
-| CSRF | Flask-WTF protects all web forms; API uses stateless bearer auth |
+| CSRF | Temporarily removed in the current release; a new implementation is planned for a future release |
 | Security headers | CSP, `X-Frame-Options: DENY`, `X-Content-Type-Options`, Referrer-Policy |
 | HTTPS / HSTS | `force_https=True` + HSTS (1 year) in production; nginx HTTP→HTTPS redirect |
 | Rate limiting | 30 req/min on API, 10 req/min on login and settings |
@@ -288,7 +289,7 @@ done
 ```
 hawk-lookout/
 ├── app/
-│   ├── __init__.py       Application factory — security config, Talisman, CSRF
+│   ├── __init__.py       Application factory — security config, Talisman
 │   ├── api.py            REST API routes (/lookup, /blacklist, /history)
 │   ├── auth.py           API key auth, rate limiter, password validator
 │   ├── config.py         Flask config (reads .env)

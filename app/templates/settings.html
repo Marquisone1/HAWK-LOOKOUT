@@ -238,7 +238,6 @@
     {% endwith %}
 
     <form method="POST" action="/settings" autocomplete="off">
-      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
 
       <p class="section-title">Change Username</p>
 
@@ -365,7 +364,6 @@
     <!-- Manual backup + export -->
     <div style="display:flex; gap:10px; flex-wrap:wrap; margin-bottom:20px;">
       <form method="POST" action="/backup/run" style="flex:1; min-width:160px;">
-        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
         <button type="submit" class="btn-save" style="background:#B8D4C8; color:var(--accent); font-size:0.92rem; padding:11px;">
           💾 Save Backup Now
         </button>
@@ -378,7 +376,6 @@
 
     <!-- Import / Restore -->
     <form method="POST" action="/backup/import" enctype="multipart/form-data">
-      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
       <div class="form-group">
         <label for="db_file">Restore from Backup File (.db)</label>
         <input type="file" id="db_file" name="db_file" accept=".db"

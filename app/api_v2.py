@@ -1,7 +1,7 @@
 """
 Phase B & C API endpoints: Risk Intelligence, Entity Graphs, Cases & Workflow.
 
-These endpoints integrate with the session-authenticated web UI (CSRF-protected).
+These endpoints integrate with the session-authenticated web UI.
 They return JSON and are accessible to authenticated web users.
 """
 

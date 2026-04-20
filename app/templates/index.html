@@ -3,7 +3,6 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <meta name="csrf-token" content="{{ csrf_token() }}" />
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;600;700&display=swap" rel="stylesheet">
@@ -455,9 +454,6 @@
   </main>
 
   <script>
-    // CSRF token for session-authenticated API calls — real API key never reaches the browser
-    const CSRF_TOKEN = document.querySelector('meta[name="csrf-token"]').getAttribute('content');
-
     const targetEl = document.getElementById("target");
     const scanBtn = document.getElementById("scanBtn");
     const historyBtn = document.getElementById("historyBtn");
@@ -937,8 +933,7 @@
         const resp = await fetch("/web/lookup", {
           method: "POST",
           headers: {
-            "Content-Type": "application/json",
-            "X-CSRFToken": CSRF_TOKEN
+            "Content-Type": "application/json"
           },
           body: JSON.stringify({ target })
         });
@@ -971,7 +966,7 @@
 
       try {
         const resp = await fetch("/web/history?limit=50", {
-          headers: { "X-CSRFToken": CSRF_TOKEN }
+          headers: {}
         });
         const payload = await resp.json();
 
@@ -1041,7 +1036,7 @@
       try {
         const resp = await fetch("/web/history/clear", {
           method: "DELETE",
-          headers: { "X-CSRFToken": CSRF_TOKEN }
+          headers: {}
         });
         const payload = await resp.json();
         if (resp.ok) {
@@ -1063,7 +1058,7 @@
       try {
         const resp = await fetch(`/web/history/${id}`, {
           method: "DELETE",
-          headers: { "X-CSRFToken": CSRF_TOKEN }
+          headers: {}
         });
         if (resp.ok) {
           btn.closest("tr").remove();
@@ -1114,7 +1109,7 @@
       blSection.innerHTML = `<p style="color:var(--muted);font-size:0.82rem;margin:0 0 8px;">🔍 Checking blacklists &amp; threat feeds…</p>`;
       try {
         const resp = await fetch(`/web/blacklist?target=${encodeURIComponent(target)}`, {
-          headers: { "X-CSRFToken": CSRF_TOKEN }
+          headers: {}
         });
         const bl = await resp.json();
         if (!resp.ok) { blSection.innerHTML = ""; return; }
@@ -1249,7 +1244,7 @@
       sbSection.innerHTML = `<p style="color:var(--muted);font-size:0.82rem;margin:0 0 8px;">🛡️ Checking Google Safe Browsing…</p>`;
       try {
         const resp = await fetch(`/web/safe-browsing?target=${encodeURIComponent(target)}`, {
-          headers: { "X-CSRFToken": CSRF_TOKEN }
+          headers: {}
         });
         const sb = await resp.json();
         console.log("Safe Browsing response:", sb);

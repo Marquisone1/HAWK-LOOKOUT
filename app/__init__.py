@@ -10,8 +10,7 @@ from datetime import datetime
 
 from sqlalchemy.exc import IntegrityError
 
-from flask import Flask, jsonify, render_template, request, session
-from flask_wtf.csrf import CSRFError, CSRFProtect
+from flask import Flask, session
 from flask_talisman import Talisman
 from werkzeug.middleware.proxy_fix import ProxyFix
 
@@ -52,15 +51,6 @@ def create_app():
     # X-Forwarded-For, preventing clients from spoofing that header.
     app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1, x_host=1)
 
-    # CSRF protection for all web form POSTs.
-    # Can be temporarily disabled with WTF_CSRF_ENABLED=false.
-    # The API blueprint uses X-API-Key bearer auth and is explicitly exempted.
-    if app.config.get("WTF_CSRF_ENABLED", True):
-        csrf = CSRFProtect(app)
-        csrf.exempt(api_bp)
-    else:
-        logger.warning("CSRF protection is temporarily disabled (WTF_CSRF_ENABLED=false)")
-
     # Security headers.
     # force_https and HSTS are enabled in production; disabled in local dev
     # so that `flask run` works without TLS.
@@ -71,6 +61,8 @@ def create_app():
         force_https=_in_production,
         strict_transport_security=_in_production,
         strict_transport_security_max_age=31536000,
+        session_cookie_secure=app.config.get("SESSION_COOKIE_SECURE", _in_production),
+        session_cookie_http_only=True,
         frame_options="DENY",
         x_content_type_options=True,
         referrer_policy="strict-origin-when-cross-origin",
@@ -110,27 +102,6 @@ def create_app():
             session['site_role'] = user.role
 
     _start_daily_backup(app)
-
-    @app.errorhandler(CSRFError)
-    def _handle_csrf_error(exc):
-        logger.warning(
-            "CSRF validation failed path=%s ip=%s reason=%s",
-            request.path,
-            request.remote_addr,
-            exc.description,
-        )
-        if request.path == "/login":
-            # Render a fresh login page with a new CSRF token.
-            return render_template(
-                "login.html",
-                error="Your login session expired. Please try again.",
-            ), 400
-        if request.path.startswith("/api"):
-            return jsonify({"error": "CSRF validation failed"}), 400
-        return render_template(
-            "login.html",
-            error="Security check failed. Please sign in again.",
-        ), 400
 
     return app
 
