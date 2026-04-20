@@ -22,7 +22,7 @@ RUN groupadd --gid ${APP_GID} appgroup \
 # gosu is used by the entrypoint to drop from root to appuser after fixing
 # /data ownership on the bind-mounted volume.
 RUN apt-get update \
- && apt-get install -y --no-install-recommends gosu=1.17-1 \
+ && apt-get install -y --no-install-recommends gosu \
  && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app

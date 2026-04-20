@@ -227,18 +227,34 @@ def _bootstrap_db(app):
         else:
             logger.warning(
                 "Bootstrap: admin user created (username=%s). "
-                "Password printed to stdout — change it immediately in Settings.",
+                "Credentials written to /data/first_boot_credentials.txt — change it immediately in Settings.",
                 username,
             )
-            # Print once to stdout (visible via `docker logs`) — never written to disk.
-            print(
-                f"\n{'=' * 58}\n"
-                f"  HAWK LOOKOUT — FIRST BOOT CREDENTIALS\n"
-                f"  Username : {username}\n"
-                f"  Password : {password}\n"
-                f"  Change these immediately in Settings!\n"
-                f"{'=' * 58}\n"
+            cred_path = "/data/first_boot_credentials.txt"
+            creds = (
+                f"HAWK LOOKOUT - FIRST BOOT CREDENTIALS\n"
+                f"Username: {username}\n"
+                f"Password: {password}\n\n"
+                f"Change these immediately in Settings and then delete this file.\n"
             )
+            try:
+                with open(cred_path, "w") as f:
+                    f.write(creds)
+                os.chmod(cred_path, 0o600)
+            except Exception as exc:
+                logger.warning(
+                    "Bootstrap: failed to write %s (%s). Falling back to stdout.",
+                    cred_path,
+                    exc,
+                )
+                print(
+                    f"\n{'=' * 58}\n"
+                    f"  HAWK LOOKOUT - FIRST BOOT CREDENTIALS\n"
+                    f"  Username : {username}\n"
+                    f"  Password : {password}\n"
+                    f"  Change these immediately in Settings!\n"
+                    f"{'=' * 58}\n"
+                )
 
     # ── API-key user (dedup + ensure one row) ────────────────────────────────
     all_users = User.query.order_by(User.id).all()
