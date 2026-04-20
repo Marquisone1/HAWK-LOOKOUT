@@ -26,7 +26,7 @@ def _load_secret_key() -> str:
     if env_key and env_key != _PLACEHOLDER:
         return env_key
 
-    key_file = "/data/secret_key"
+    key_file = os.getenv("SECRET_KEY_FILE", "/data/secret_key")
     try:
         with open(key_file) as f:
             stored = f.read().strip()
@@ -41,7 +41,13 @@ def _load_secret_key() -> str:
         with open(key_file, "w") as f:
             f.write(generated)
     except Exception:
-        pass
+        # In production, do not silently rotate SECRET_KEY on every restart,
+        # because that invalidates sessions and CSRF tokens.
+        if os.getenv("FLASK_ENV", "production").lower() == "production":
+            raise RuntimeError(
+                "Unable to persist SECRET_KEY to SECRET_KEY_FILE. "
+                "Set SECRET_KEY explicitly or fix write access to the key file path."
+            )
     return generated
 
 
