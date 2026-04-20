@@ -82,4 +82,5 @@ class Config:
     SESSION_COOKIE_SAMESITE = "Lax"
 
     # Flask-WTF CSRF
+    WTF_CSRF_ENABLED = _env_bool("WTF_CSRF_ENABLED", default=True)
     WTF_CSRF_TIME_LIMIT = 3600  # 1-hour token lifetime
